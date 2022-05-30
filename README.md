@@ -1,5 +1,6 @@
 # Confusion Training
 
+Official Implementation for [Fight Poison with Poison: Detecting Backdoor Poison Samples via Decoupling Benign Correlations](https://arxiv.org/abs/2205.13616)
 
 
 
