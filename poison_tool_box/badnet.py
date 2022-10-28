@@ -18,6 +18,8 @@ class poison_generator():
         # shape of the patch trigger
         _, self.dx, self.dy = trigger.shape
 
+        print('trigger_size : %d x %d' % (self.dx, self.dy))
+
         # number of images
         self.num_img = len(dataset)
 
@@ -36,6 +38,8 @@ class poison_generator():
         poison_indices = id_set[:num_poison]
         poison_indices.sort() # increasing order
 
+        print('poison_indicies : ', poison_indices)
+
         label_set = []
         pt = 0
         for i in range(self.num_img):
@@ -49,7 +53,7 @@ class poison_generator():
             img_file_name = '%d.png' % i
             img_file_path = os.path.join(self.path, img_file_name)
             save_image(img, img_file_path)
-            #print('[Generate Poisoned Set] Save %s' % img_file_path)
+            print('[Generate Poisoned Set] Save %s' % img_file_path)
             label_set.append(gt)
 
         label_set = torch.LongTensor(label_set)
@@ -65,6 +69,8 @@ class poison_transform():
         self.target_class = target_class # by default : target_class = 0
         # shape of the patch trigger
         _, self.dx, self.dy = trigger.shape
+
+        print(self.img_size, self.target_class, self.dx, self.dy, self.trigger.shape)
 
     def transform(self, data, labels):
 

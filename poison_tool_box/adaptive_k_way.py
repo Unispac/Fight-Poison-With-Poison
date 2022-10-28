@@ -7,51 +7,36 @@ import numpy as np
 import config
 from torchvision import transforms
 from config import poison_seed
-from math import sqrt
 
-"""Adaptive Mask backdoor attack
-- Keep the original labels for some (say 50%) poisoned samples.
-- Divide the blending trigger into multiple pieces, randomly masking some pieces while poisoning the trainset.
-This version uses blending backdoor trigger: blending a mark with a mask and a transparency `alpha`
+"""Adaptive backdoor attack (k way)
+Just keep the original labels for some (say 50%) poisoned samples...
+
+`k` pixels are used as triggers,
+each of them is poisoned indepently at training time,
+but are poisoned together at inference time.
 """
 
-
-def issquare(x):
-    tmp = sqrt(x)
-    tmp2 = round(tmp)
-    return abs(tmp - tmp2) <= 1e-8
-
-
-def get_trigger_mask(img_size, total_pieces, masked_pieces):
-    div_num = sqrt(total_pieces)
-    step = int(img_size // div_num)
-    candidate_idx = random.sample(list(range(total_pieces)), k=masked_pieces)
-    mask = torch.ones((img_size, img_size))
-    for i in candidate_idx:
-        x = int(i % div_num)  # column
-        y = int(i // div_num)  # row
-        mask[x * step: (x + 1) * step, y * step: (y + 1) * step] = 0
-    return mask
+k = 4  # number of poison pixels
+pixel_locs = [[16, 11],
+              [27, 5],
+              [7, 30],
+              [22, 22]]  # locations of `k` pixels
+pixel_vals = [[92. / 255., 0. / 255., 24. / 255.],
+              [88. / 255., 112. / 255., 110. / 255.],
+              [0. / 255., 32. / 255., 46. / 255.],
+              [11. / 255., 49. / 255., 95. / 255.]]  # intensity of `k` pixels
 
 
 class poison_generator():
 
-    def __init__(self, img_size, dataset, poison_rate, path, trigger, target_class=0, alpha=0.2, cover_rate=0.01,
-                 pieces=16, mask_rate=0.5):
+    def __init__(self, img_size, dataset, poison_rate, path, target_class=0, cover_rate=0.01):
 
         self.img_size = img_size
         self.dataset = dataset
         self.poison_rate = poison_rate
         self.path = path  # path to save the dataset
         self.target_class = target_class  # by default : target_class = 0
-        self.trigger = trigger
-        self.alpha = alpha
         self.cover_rate = cover_rate
-        assert abs(round(sqrt(pieces)) - sqrt(pieces)) <= 1e-8
-        assert img_size % round(sqrt(pieces)) == 0
-        self.pieces = pieces
-        self.mask_rate = mask_rate
-        self.masked_pieces = round(self.mask_rate * self.pieces)
 
         # number of images
         self.num_img = len(dataset)
@@ -85,16 +70,24 @@ class poison_generator():
             # cover image
             if ct < num_cover and cover_indices[ct] == i:
                 cover_id.append(cnt)
-                mask = get_trigger_mask(self.img_size, self.pieces, self.masked_pieces)
-                img = img + self.alpha * mask * (self.trigger - img)
+                for j in range(k):
+                    if ct < (j + 1) * (num_cover / k):
+                        img[0, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][0]
+                        img[1, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][1]
+                        img[2, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][2]
+                        break
                 ct += 1
 
             # poisoned image
             if pt < num_poison and poison_indices[pt] == i:
                 poison_id.append(cnt)
                 gt = self.target_class  # change the label to the target class
-                mask = get_trigger_mask(self.img_size, self.pieces, self.masked_pieces)
-                img = img + self.alpha * mask * (self.trigger - img)
+                for j in range(k):
+                    if pt < (j + 1) * (num_poison / k):
+                        img[0, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][0]
+                        img[1, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][1]
+                        img[2, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][2]
+                        break
                 pt += 1
 
             img_file_name = '%d.png' % cnt
@@ -112,8 +105,10 @@ class poison_generator():
 
         # demo
         img, gt = self.dataset[0]
-        mask = get_trigger_mask(self.img_size, self.pieces, self.masked_pieces)
-        img = img + self.alpha * mask * (self.trigger - img)
+        for j in range(k):
+            img[0, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][0]
+            img[1, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][1]
+            img[2, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][2]
         save_image(img, os.path.join(self.path[:-4], 'demo.png'))
 
         return poison_indices, cover_indices, label_set
@@ -121,29 +116,24 @@ class poison_generator():
 
 class poison_transform():
 
-    def __init__(self, img_size, trigger, target_class=0, alpha=0.2):
+    def __init__(self, img_size, target_class=0, denormalizer=None, normalizer=None):
         self.img_size = img_size
         self.target_class = target_class
-        self.trigger = trigger
-        self.alpha = alpha
+        self.denormalizer = denormalizer
+        self.normalizer = normalizer
 
     def transform(self, data, labels):
         data, labels = data.clone(), labels.clone()
-        data = data + self.alpha * (self.trigger - data)
+        data = self.denormalizer(data)
+        for j in range(k):
+            data[:, 0, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][0]
+            data[:, 1, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][1]
+            data[:, 2, pixel_locs[j][0], pixel_locs[j][1]] = pixel_vals[j][2]
+        data = self.normalizer(data)
         labels[:] = self.target_class
 
         # debug
         # from torchvision.utils import save_image
-        # from torchvision import transforms
-        # normalizer = transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
-        # denormalizer = transforms.Normalize([-0.4914/0.247, -0.4822/0.243, -0.4465/0.261], [1/0.247, 1/0.243, 1/0.261])
-        # # normalizer = transforms.Compose([
-        # #     transforms.Normalize((0.3337, 0.3064, 0.3171), (0.2672, 0.2564, 0.2629))
-        # # ])
-        # # denormalizer = transforms.Compose([
-        # #     transforms.Normalize((-0.3337 / 0.2672, -0.3064 / 0.2564, -0.3171 / 0.2629),
-        # #                             (1.0 / 0.2672, 1.0 / 0.2564, 1.0 / 0.2629)),
-        # # ])
-        # save_image(denormalizer(data)[0], 'b.png')
+        # save_image(reverse_preprocess(data)[0], 'a.png')
 
         return data, labels

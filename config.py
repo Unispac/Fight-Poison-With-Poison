@@ -1,4 +1,4 @@
-from utils import resnet, wresnet, vgg, mobilenetv2
+from utils import ResNet, vgg, mobilenetv2, ember_nn
 from utils import supervisor
 from utils import tools
 import torch
@@ -10,64 +10,47 @@ data_dir = './data' # defaul clean dataset directory
 triggers_dir = './triggers' # default triggers directory
 target_class = {
     'cifar10' : 0,
-    'gtsrb' : 2
+    'gtsrb' : 2,
+    'imagenette': 0,
 }
 
 # default target class (without loss of generality)
 source_class = 1 # default source class for TaCT
 cover_classes = [5,7] # default cover classes for TaCT
-seed = 2333 # 999, 999, 666 (1234, 5555, 777)
 poison_seed = 0
 record_poison_seed = True
 record_model_arch = False
 
-parser_choices = {
-    'dataset': ['gtsrb','cifar10', 'cifar100', 'imagenette'],
-    'poison_type': ['badnet', 'blend', 'dynamic', 'clean_label', 'TaCT', 'SIG',
-                    'adaptive', 'adaptive_blend', 'adaptive_k_way', 'adaptive_k',
-                    'none', 'universal'],
-    'poison_rate': [0, 0.002, 0.004, 0.005, 0.008, 0.01, 0.015, 0.02, 0.05, 0.1],
-    'cover_rate': [0, 0.001, 0.005, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.1],
-}
-
-parser_default = {
-    'dataset': 'cifar10',
-    'poison_type': 'badnet',
-    'poison_rate': 0,
-    'cover_rate': 0,
-    'alpha': 0.2,
-}
-
 trigger_default = {
     'adaptive': 'hellokitty_32.png',
     'adaptive_blend': 'hellokitty_32.png',
-    'adaptive_k_way': 'none',
-    'adaptive_k': 'none',
+    'adaptive_mask': 'hellokitty_32.png',
+    'adaptive_patch': 'none',
     'clean_label' : 'badnet_patch4_dup_32.png',
+    'basic' : 'badnet_patch_32.png',
     'badnet' : 'badnet_patch.png',
     'blend' : 'hellokitty_32.png',
+    'refool': 'none',
     'TaCT' : 'trojan_square_32.png',
-    'sleeper_agent': 'trigger_sleeper_agent.png',
     'SIG' : 'none',
+    'WaNet': 'none',
     'dynamic' : 'none',
+    'ISSBA': 'none',
     'none' : 'none',
-    'universal': 'universal.png'
 }
 
 arch = {
     ### for base model & poison distillation
-     'cifar10': resnet.resnet20,
-    # 'cifar10': vgg.vgg16_bn,
-    # 'cifar10': mobilenetv2.mobilenetv2,
-    'gtsrb' : resnet.resnet20,
-    ### for constructing inference model
-    'low_dim' : resnet.resnet20_low_dim,
-    'abl':  wresnet.WideResNet
+    'cifar10': ResNet.ResNet18,
+    'gtsrb' : ResNet.ResNet18,
+    'imagenette': ResNet.ResNet18,
+    'ember': ember_nn.EmberNN,
+    #'abl':  wresnet.WideResNet
 }
 
 
-def get_params(args):
 
+def get_params(args):
 
     if args.dataset == 'cifar10':
 
@@ -80,21 +63,10 @@ def get_params(args):
 
         data_transform_aug = transforms.Compose([
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
+            transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
             transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]),
         ])
-
-        lamb1 = 24.0
-        lamb2 = 24.0
-
-        lr_base = 0.1
-        lr_distillation = 0.01
-        lr_inference = 0.01
-
-        condensation_num = 2000
-        median_sample_rate = 0.1
-        weight_decay = 1e-4
 
     elif args.dataset == 'gtsrb':
 
@@ -111,47 +83,50 @@ def get_params(args):
             transforms.Normalize((0.3337, 0.3064, 0.3171), (0.2672, 0.2564, 0.2629))
         ])
 
-        lamb1 = 14.0
-        lamb2 = 14.0
+    elif args.dataset == 'imagenette':
 
-        lr_base = 0.1
-        lr_distillation = 0.001
-        lr_inference = 0.001
+        num_classes = 10
 
-        condensation_num = 2000
-        median_sample_rate = 0.1
-        weight_decay = 1e-4
+        data_transform_normalize = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+
+        data_transform_aug = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
 
     else:
         raise NotImplementedError('<Unimplemented Dataset> %s' % args.dataset)
 
-    from utils import wide_resnet
+
     params ={
         'data_transform' : data_transform_normalize,
         'data_transform_aug' : data_transform_aug,
-        'lamb_distillation' : lamb1,
-        'lamb_inference' : lamb2,
-        'lr_base' : lr_base,
-        'lr_distillation' : lr_distillation,
-        'lr_inference' : lr_inference,
-        'weight_decay' : weight_decay,
-        'condensation_num' : condensation_num, # number of samples extracted after distillation (samples with least losses will be extracted)
-        'median_sample_rate' : median_sample_rate, # rate of samples extracted from the sorted samples to approximate the clean statistics
-        'distillation_ratio' : [1/2, 1/4],
-
+        'distillation_ratio' : [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
+        'momentums' : [0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],
+        'lambs' : [25, 25, 50, 50, 100, 100, 25, 5],
+        'lrs' : [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+        'batch_factors' : [2, 2, 4, 4, 8, 8, 2, 1],
+        'weight_decay' : 1e-4,
         'num_classes' : num_classes,
-        'batch_size' : 128,
+        'batch_size' : 64,
         'pretrain_epochs' : 60,
+        'median_sample_rate': 0.1,
         'base_arch' :  arch[args.dataset],
-        'inference_arch' :  arch['low_dim'],
-
-        'inspection_set_dir' : supervisor.get_poison_set_dir(args)
+        'arch' :  arch[args.dataset],
+        'kwargs' : {'num_workers': 4, 'pin_memory': True},
+        'inspection_set_dir': supervisor.get_poison_set_dir(args)
     }
 
     return params
 
 
-def get_dataset(inspection_set_dir, data_transform, args):
+def get_dataset(inspection_set_dir, data_transform, args, num_classes = 10):
+
+    print('|num_classes = %d|' % num_classes)
 
     # Set Up Inspection Set (dataset that is to be inspected
     inspection_set_img_dir = os.path.join(inspection_set_dir, 'data')
@@ -164,7 +139,8 @@ def get_dataset(inspection_set_dir, data_transform, args):
     clean_set_img_dir = os.path.join(clean_set_dir, 'data')
     clean_label_path = os.path.join(clean_set_dir, 'clean_labels')
     clean_set = tools.IMG_Dataset(data_dir=clean_set_img_dir,
-                                  label_path=clean_label_path, transforms=data_transform)
+                                  label_path=clean_label_path, transforms=data_transform,
+                                  num_classes=num_classes, shift=True)
 
     return inspection_set, clean_set
 

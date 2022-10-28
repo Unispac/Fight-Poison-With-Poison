@@ -60,7 +60,7 @@ def get_dir_core(args, include_model_name=False, include_poison_seed=False):
         blend_alpha = '%.3f' % args.alpha
         cover_rate = '%.3f' % args.cover_rate
         dir_core = '%s_%s_%s_alpha=%s_cover=%s_trigger=%s' % (args.dataset, args.poison_type, ratio, blend_alpha, cover_rate, args.trigger)
-    elif args.poison_type == 'adaptive_k_way' or args.poison_type == 'adaptive_k':
+    elif args.poison_type == 'adaptive_patch':
         cover_rate = '%.3f' % args.cover_rate
         dir_core = '%s_%s_%s_cover=%s' % (args.dataset, args.poison_type, ratio, cover_rate)
     elif args.poison_type == 'adaptive_patch' or args.poison_type == 'adaptive_physical':
@@ -86,7 +86,7 @@ def get_poison_set_dir(args):
         blend_alpha = '%.3f' % args.alpha
         cover_rate = '%.3f' % args.cover_rate
         poison_set_dir = 'poisoned_train_set/%s/%s_%s_alpha=%s_cover=%s_trigger=%s' % (args.dataset, args.poison_type, ratio, blend_alpha, cover_rate, args.trigger)
-    elif args.poison_type == 'adaptive_k_way' or args.poison_type == 'adaptive_k':
+    elif args.poison_type == 'adaptive_patch':
         cover_rate = '%.3f' % args.cover_rate
         poison_set_dir = 'poisoned_train_set/%s/%s_%s_cover=%s' % (args.dataset, args.poison_type, ratio, cover_rate)
     elif args.poison_type == 'adaptive_patch' or args.poison_type == 'adaptive_physical':
@@ -104,8 +104,15 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
 
     # source class will be used for TaCT poison
 
+
     if trigger_name is None:
-        trigger_name = config.trigger_default[poison_type]
+        if dataset_name != 'imagenette':
+            trigger_name = config.trigger_default[poison_type]
+        else:
+            if poison_type == 'badnet':
+                trigger_name = 'badnet_high_res.png'
+            else:
+                raise NotImplementedError('%s not implemented for imagenette' % poison_type)
 
     if dataset_name in ['gtsrb','cifar10', 'cifar100']:
         img_size = 32
@@ -130,6 +137,14 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
             transforms.Normalize((-0.3337 / 0.2672, -0.3064 / 0.2564, -0.3171 / 0.2629),
                                     (1.0 / 0.2672, 1.0 / 0.2564, 1.0 / 0.2629)),
         ])
+    elif dataset_name == 'imagenette':
+        normalizer = transforms.Compose([
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        ])
+        denormalizer = transforms.Compose([
+            transforms.Normalize((-0.485/0.229, -0.456/0.224, -0.406/0.225),
+                                 (1.0/0.229, 1.0/0.224, 1.0/0.225)),
+        ])
     else:
         raise Exception("Invalid Dataset")
 
@@ -138,8 +153,8 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
     trigger_mask = None
 
     if poison_type in ['badnet', 'blend', 'clean_label',
-                       'adaptive', 'adaptive_blend', 'adaptive_k', 'adaptive_k_way',
-                       'SIG', 'TaCT', 'sleeper_agent', 'none', 'universal']:
+                       'adaptive', 'adaptive_blend', 'adaptive_patch',
+                       'SIG', 'TaCT', 'sleeper_agent', 'none']:
 
         if trigger_transform is None:
             trigger_transform = transforms.Compose([
@@ -148,6 +163,7 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
 
         if trigger_name != 'none': # none for SIG
             trigger_path = os.path.join(config.triggers_dir, trigger_name)
+            print('trigger : ', trigger_path)
             trigger = Image.open(trigger_path).convert("RGB")
 
             trigger_mask_path = os.path.join(config.triggers_dir, 'mask_%s' % trigger_name)
@@ -161,12 +177,14 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
                 trigger_mask = torch.logical_or(torch.logical_or(trigger_map[0] > 0, trigger_map[1] > 0), trigger_map[2] > 0).float()
 
             trigger = trigger_transform(trigger).cuda()
+            print('trigger_shape: ', trigger.shape)
             trigger_mask = trigger_mask.cuda()
+
+
 
         if poison_type == 'badnet':
             from poison_tool_box import badnet
             poison_transform = badnet.poison_transform(img_size=img_size, trigger=trigger, target_class=target_class)
-
         elif poison_type == 'blend':
             from poison_tool_box import blend
             poison_transform = blend.poison_transform(img_size=img_size, trigger=trigger,
@@ -176,29 +194,16 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
             from poison_tool_box import clean_label
             poison_transform = clean_label.poison_transform(img_size=img_size, trigger_mark=trigger, trigger_mask=trigger_mask,
                                                             target_class=target_class)
-
-        elif poison_type == 'adaptive':
-            from poison_tool_box import adaptive
-            poison_transform = adaptive.poison_transform(img_size=img_size, trigger_mark=trigger, trigger_mask=trigger_mask,
-                                                         target_class=target_class, alpha=alpha)
         
         elif poison_type == 'adaptive_blend':
+
             from poison_tool_box import adaptive_blend
             poison_transform = adaptive_blend.poison_transform(img_size=img_size, trigger=trigger,
-                                                               target_class=target_class, alpha=alpha)
+                                                              target_class=target_class, alpha=alpha)
         
-        elif poison_type == 'adaptive_k_way':
-            from poison_tool_box import adaptive_k_way
-            poison_transform = adaptive_k_way.poison_transform(img_size=img_size, target_class=target_class, denormalizer=denormalizer, normalizer=normalizer,)
-        
-        elif poison_type == 'adaptive_k':
-            from poison_tool_box import adaptive_k
-            poison_transform = adaptive_k.poison_transform(img_size=img_size, target_class=target_class, denormalizer=denormalizer, normalizer=normalizer,)
-        
-        elif poison_type == 'universal':
-            from poison_tool_box import universal
-            poison_transform = universal.poison_transform(img_size=img_size, trigger=trigger,
-                                                          target_class=target_class)
+        elif poison_type == 'adaptive_patch':
+            from poison_tool_box import adaptive_patch
+            poison_transform = adaptive_patch.poison_transform(img_size=img_size, target_class=target_class, denormalizer=denormalizer, normalizer=normalizer,)
 
         elif poison_type == 'SIG':
 
@@ -210,17 +215,6 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
             from poison_tool_box import TaCT
             poison_transform = TaCT.poison_transform(img_size=img_size, trigger=trigger, mask = trigger_mask,
                                                      target_class=target_class)
-
-        elif poison_type == 'sleeper_agent':
-
-            if args is None:
-                raise Exception('sleeper_agent need args to read metadata.')
-            poison_set_dir = get_poison_set_dir(args)
-            meta_info = torch.load(os.path.join(poison_set_dir, 'meta_info'))
-            target_class = meta_info['target_class']
-
-            from poison_tool_box import sleeper_agent
-            poison_transform = sleeper_agent.poison_transform(img_size=img_size, trigger=trigger,target_class=target_class)
 
         else: # 'none'
             from poison_tool_box import none

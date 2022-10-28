@@ -14,7 +14,7 @@ from utils import supervisor
 
 
 class IMG_Dataset(Dataset):
-    def __init__(self, data_dir, label_path, transforms = None):
+    def __init__(self, data_dir, label_path, transforms = None, num_classes = 10, shift = False):
         """
         Args:
             data_dir: directory of the data
@@ -25,6 +25,9 @@ class IMG_Dataset(Dataset):
         self.gt = torch.load(label_path)
         self.transforms = transforms
 
+        self.num_classes = num_classes
+        self.shift = shift
+
     def __len__(self):
         return len(self.gt)
 
@@ -33,8 +36,47 @@ class IMG_Dataset(Dataset):
         img = Image.open(os.path.join(self.dir, '%d.png' % idx))
         if self.transforms is not None:
             img = self.transforms(img)
+
         label = self.gt[idx]
+        if self.shift:
+            label = (label + 1) % self.num_classes
         return img, label
+
+
+class EMBER_Dataset(Dataset):
+    def __init__(self, x_path, y_path, stats_path):
+        """
+        Args:
+            data_dir: directory of the data
+            label_path: path to data labels
+            transforms: image transformation to be applied
+        """
+        self.x = np.load(x_path)
+        self.x = torch.FloatTensor(self.x)
+
+        if y_path is not None:
+            self.y = np.load(y_path)
+            self.y = torch.FloatTensor(self.y)
+        else:
+            self.y = None
+
+        #stats = torch.load(stats_path)
+        #mean = stats['mean']
+        #std = stats['std'] + 1e-2
+        #self.x = (self.x - mean)/std
+
+    def __len__(self):
+        return self.x.shape[0]
+
+    def __getitem__(self, idx):
+        idx = int(idx)
+        x = self.x[idx].clone()
+
+        if self.y is not None:
+            label = self.y[idx]
+            return x, label
+        else:
+            return x
 
 
 
@@ -104,6 +146,36 @@ def test(model, test_loader, poison_test = False, poison_transform=None, num_cla
     print("")
     return  clean_correct/tot
 
+
+def test_ember(model, test_loader, backdoor_test_loader):
+
+    model.eval()
+
+    clean_correct = 0
+    tot = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.cuda(), target.cuda()
+            clean_output = model(data)
+            clean_pred = (clean_output >= 0.5).long()
+            clean_correct += clean_pred.eq(target).sum().item()
+            tot += len(target)
+
+    print('<clean accuracy> %d/%d = %f' % (clean_correct, tot, clean_correct/tot) )
+
+    adv_correct = 0
+    tot = 0
+    with torch.no_grad():
+        for data in backdoor_test_loader:
+            data = data.cuda()
+            adv_output = model(data)
+            adv_correct += (adv_output>=0.5).sum()
+            tot += data.shape[0]
+
+    adv_wrong = tot - adv_correct
+    print('<asr> %d/%d = %f' % (adv_wrong, tot, adv_wrong/tot))
+
+    return
 
 def setup_seed(seed):
     random.seed(seed)

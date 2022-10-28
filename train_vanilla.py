@@ -1,25 +1,25 @@
-import torch
-import os
-from utils import resnet, tools
-from torchvision import transforms
 import argparse
-from torch import nn
+import os
 from tqdm import tqdm
-import torchvision
-import config
+from utils import resnet_bnorm, tools, default_args
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-devices', type=str, default='0')
 parser.add_argument('-no_aug', default=False, action='store_true')
 parser.add_argument('-dataset', type=str, required=False,
-                    default=config.parser_default['dataset'],
-                    choices=config.parser_choices['dataset'])
-parser.add_argument('-epoch', type=int, required=False,
-                    choices=[40, 80, 200], default=200)
-parser.add_argument('-seed', type=int, required=False, default=config.seed)
+                    default=default_args.parser_default['dataset'],
+                    choices=default_args.parser_choices['dataset'])
+parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
 args = parser.parse_args()
 tools.setup_seed(args.seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
+
+import torch
+from torchvision import transforms
+from torch import nn
+import torchvision
+import config
 
 
 data_transform_aug = transforms.Compose([
@@ -40,7 +40,7 @@ data_transform = data_transform_no_aug if args.no_aug else data_transform_aug
 batch_size = 256
 learning_rate = 0.1
 num_classes = 10
-arch = resnet.resnet110
+arch = resnet_bnorm.resnet110
 momentum = 0.9
 weight_decay = 1e-4
 milestones = torch.tensor([100, 150])

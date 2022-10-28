@@ -5,24 +5,24 @@ import argparse
 from PIL import Image
 import numpy as np
 import config
-from utils import supervisor
+from utils import supervisor, default_args
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('-dataset', type=str, required=False,
-                    default=config.parser_default['dataset'],
-                    choices=config.parser_choices['dataset'])
+                    default=default_args.parser_default['dataset'],
+                    choices=default_args.parser_choices['dataset'])
 parser.add_argument('-poison_type', type=str,  required=False,
-                    choices=config.parser_choices['poison_type'],
-                    default=config.parser_default['poison_type'])
+                    choices=default_args.parser_choices['poison_type'],
+                    default=default_args.parser_default['poison_type'])
 parser.add_argument('-poison_rate', type=float,  required=False,
-                    choices=config.parser_choices['poison_rate'],
-                    default=config.parser_default['poison_rate'])
+                    choices=default_args.parser_choices['poison_rate'],
+                    default=default_args.parser_default['poison_rate'])
 parser.add_argument('-cover_rate', type=float,  required=False,
-                    choices=config.parser_choices['cover_rate'],
-                    default=config.parser_default['cover_rate'])
+                    choices=default_args.parser_choices['cover_rate'],
+                    default=default_args.parser_default['cover_rate'])
 parser.add_argument('-alpha', type=float,  required=False,
-                    default=config.parser_default['alpha'])
+                    default=default_args.parser_default['alpha'])
 parser.add_argument('-trigger', type=str,  required=False,
                     default=None)
 args = parser.parse_args()
@@ -31,14 +31,18 @@ print('[target class : %d]' % config.target_class[args.dataset])
 
 data_dir = config.data_dir  # directory to save standard clean set
 if args.trigger is None:
-    args.trigger = config.trigger_default[args.poison_type]
+    if args.dataset != 'imagenette':
+        args.trigger = config.trigger_default[args.poison_type]
+    else:
+        if args.poison_type == 'badnet':
+            args.trigger = 'badnet_high_res.png'
+        else:
+            raise NotImplementedError('%s not implemented for imagenette' % args.poison_type)
 
 if not os.path.exists(os.path.join('poisoned_train_set', args.dataset)):
     os.mkdir(os.path.join('poisoned_train_set', args.dataset))
 
 if args.poison_type == 'dynamic':
-
-
 
     if args.dataset == 'cifar10':
 
@@ -84,15 +88,15 @@ if args.poison_type == 'dynamic':
         normalizer = None
         denormalizer = None
 
-    elif args.dataset == 'cifar100':
-        raise  NotImplementedError('cifar100 unsupported!')
     elif args.dataset == 'imagenette':
-        raise  NotImplementedError('imagenette unsupported!')
+        raise  NotImplementedError('imagenette unsupported for dynamic!')
     else:
         raise  NotImplementedError('Undefined Dataset')
 
 else:
+
     if args.dataset == 'gtsrb':
+
         data_transform = transforms.Compose([
             transforms.Resize((32, 32)),
             transforms.ToTensor(),
@@ -101,7 +105,9 @@ else:
                                    transform = data_transform, download=True)
         img_size = 32
         num_classes = 43
+
     elif args.dataset == 'cifar10':
+
         data_transform = transforms.Compose([
             transforms.ToTensor(),
         ])
@@ -109,10 +115,18 @@ else:
                                      download=True, transform=data_transform)
         img_size = 32
         num_classes = 10
-    elif args.dataset == 'cifar100':
-        raise NotImplementedError('cifar100 unsupported!')
+
     elif args.dataset == 'imagenette':
-        raise  NotImplementedError('imagenette unsupported!')
+
+        data_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+        ])
+        train_set = datasets.ImageFolder(os.path.join(os.path.join(data_dir, 'imagenette2'), 'train'),
+                                         data_transform)
+        img_size = 224
+        num_classes = 10
+
     else:
         raise  NotImplementedError('Undefined Dataset')
 
@@ -132,7 +146,7 @@ if not os.path.exists(poison_set_img_dir):
 
 
 if args.poison_type in ['badnet', 'blend', 'clean_label',
-                        'adaptive', 'adaptive_blend', 'adaptive_k', 'adaptive_k_way',
+                        'adaptive', 'adaptive_blend', 'adaptive_patch',
                         'SIG', 'TaCT', 'sleeper_agent', 'none', 'universal']:
 
     trigger_name = args.trigger
@@ -201,52 +215,21 @@ if args.poison_type in ['badnet', 'blend', 'clean_label',
 
         from poison_tool_box import adaptive_blend
         poison_generator = adaptive_blend.poison_generator(img_size=img_size, dataset=train_set,
-                                                           poison_rate=args.poison_rate,
-                                                           path=poison_set_img_dir, trigger=trigger,
-                                                           target_class=config.target_class[args.dataset], alpha=alpha,
-                                                           cover_rate=args.cover_rate)
+                                                          poison_rate=args.poison_rate,
+                                                          path=poison_set_img_dir, trigger=trigger,
+                                                          pieces=16, mask_rate=0.5,
+                                                          target_class=config.target_class[args.dataset], alpha=alpha,
+                                                          cover_rate=args.cover_rate)
     
-    elif args.poison_type == 'adaptive_k_way':
+    elif args.poison_type == 'adaptive_patch':
 
-        from poison_tool_box import adaptive_k_way
-        poison_generator = adaptive_k_way.poison_generator(img_size=img_size, dataset=train_set,
+
+        from poison_tool_box import adaptive_patch
+        poison_generator = adaptive_patch.poison_generator(img_size=img_size, dataset=train_set,
                                                            poison_rate=args.poison_rate,
                                                            path=poison_set_img_dir,
                                                            target_class=config.target_class[args.dataset],
                                                            cover_rate=args.cover_rate)
-    
-    elif args.poison_type == 'adaptive_k':
-
-        from poison_tool_box import adaptive_k
-        poison_generator = adaptive_k.poison_generator(img_size=img_size, dataset=train_set,
-                                                       poison_rate=args.poison_rate,
-                                                       path=poison_set_img_dir,
-                                                       target_class=config.target_class[args.dataset],
-                                                       cover_rate=args.cover_rate)
-
-    elif args.poison_type == 'new_poison':
-
-        if args.dataset == 'cifar10':
-            adv_imgs_path = "data/cifar10/clean_label/fully_poisoned_training_datasets/two_600.npy"
-            if not os.path.exists("data/cifar10/clean_label/fully_poisoned_training_datasets/two_600.npy"):
-                raise NotImplementedError("Run 'data/cifar10/clean_label/setup.sh' first to launch clean label attack!")
-            adv_imgs_src = np.load("data/cifar10/clean_label/fully_poisoned_training_datasets/two_600.npy").astype(np.uint8)
-            adv_imgs = []
-            for i in range(adv_imgs_src.shape[0]):
-                adv_imgs.append(data_transform(adv_imgs_src[i]).unsqueeze(0))
-            adv_imgs = torch.cat(adv_imgs, dim=0)
-            assert adv_imgs.shape[0] == len(train_set)
-        else:
-            raise NotImplementedError('Clean Label Attack is not implemented for %s' % args.dataset)
-
-        from poison_tool_box import universal
-        poison_generator = universal.poison_generator(img_size=img_size, dataset=train_set,
-                                                      adv_imgs = adv_imgs,
-                                                      poison_rate=args.poison_rate, path=poison_set_img_dir,
-                                                      trigger=trigger, mask=trigger_mask,
-                                                      target_class=config.target_class[args.dataset],
-                                                      cover_rate=args.cover_rate)
-        #def __init__(self, img_size, dataset, poison_rate, trigger, mask, path, target_class=0, cover_rate=1.0):
 
 
     elif args.poison_type == 'SIG':
@@ -287,7 +270,7 @@ if args.poison_type in ['badnet', 'blend', 'clean_label',
 
 
 
-    if args.poison_type not in ['TaCT', 'adaptive', 'adaptive_blend', 'adaptive_k', 'adaptive_k_way', 'new_poison']:
+    if args.poison_type not in ['TaCT', 'adaptive', 'adaptive_blend', 'adaptive_patch']:
         poison_indices, label_set = poison_generator.generate_poisoned_training_set()
         print('[Generate Poisoned Set] Save %d Images' % len(label_set))
 
