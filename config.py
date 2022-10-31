@@ -1,4 +1,4 @@
-from utils import ResNet, vgg, mobilenetv2, ember_nn
+from utils import resnet, vgg, mobilenetv2, ember_nn
 from utils import supervisor
 from utils import tools
 import torch
@@ -41,9 +41,9 @@ trigger_default = {
 
 arch = {
     ### for base model & poison distillation
-    'cifar10': ResNet.ResNet18,
-    'gtsrb' : ResNet.ResNet18,
-    'imagenette': ResNet.ResNet18,
+    'cifar10': resnet.ResNet18,
+    'gtsrb' : resnet.ResNet18,
+    'imagenette': resnet.ResNet18,
     'ember': ember_nn.EmberNN,
     #'abl':  wresnet.WideResNet
 }
