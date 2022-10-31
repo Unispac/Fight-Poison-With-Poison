@@ -165,8 +165,6 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
 
     for target_class in range(num_classes):
 
-        print('num')
-
         num_samples_within_class = len(class_indices[target_class])
 
         print('class-%d : ' % target_class, num_samples_within_class)
@@ -186,10 +184,15 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
                 clean_chunklet_indices_within_class.append(i)
                 pt += 1
 
-        temp_feats = torch.FloatTensor(feats_inspection[class_indices[target_class]])
-        projector = PCA(n_components=8)
-        projected_feats = projector.fit_transform(temp_feats)
-        temp_feats = torch.FloatTensor(projected_feats)
+        print('start_pca..')
+
+
+
+        temp_feats = torch.FloatTensor(
+            feats_inspection[class_indices[target_class]] ).cuda()
+
+        U, S, V = torch.pca_lowrank(temp_feats, q = 16)
+        temp_feats = torch.matmul(temp_feats, V[:, :16])
 
         # whiten the data with approximated clean statistics
         clean_feats = temp_feats[clean_chunklet_indices_within_class]
@@ -202,10 +205,11 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
         normalizer = torch.matmul(V, torch.matmul(L, V.T))
         temp_feats = torch.matmul(normalizer, temp_feats.T).T
 
+
+
         # reduce dimensionality
-        projector = PCA(n_components=2)
-        projected_feats = projector.fit_transform(temp_feats)
-        projected_feats = torch.FloatTensor(projected_feats)
+        U, S, V = torch.pca_lowrank(temp_feats, q = 2)
+        projected_feats = torch.matmul(temp_feats, V[:, :2]).cpu()
         projected_feats_clean = projected_feats[clean_chunklet_indices_within_class]
 
         # unconstrained gmm => we use it as the init state for the latter constrained gmm
@@ -268,7 +272,7 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
     for target_class in range(num_classes):
         likelihood_ratio = class_likelihood_ratio[target_class]
 
-        if likelihood_ratio == max_ratio and likelihood_ratio > 2.0:  # a lower conservative threshold for maximum ratio
+        if likelihood_ratio == max_ratio and likelihood_ratio > 1.5:  # a lower conservative threshold for maximum ratio
 
             print('[class-%d] class with maximal ratio %f!. Apply Cleanser!' % (target_class, max_ratio))
 
@@ -555,13 +559,15 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction):
 
         recall = 0
         for idx in correct_instances:
+            if pt >= num_poison:
+                break
             while (idx > poison_indices[pt] and pt + 1 < num_poison): pt += 1
-            if poison_indices[pt] == idx:
+            if pt < num_poison and poison_indices[pt] == idx:
                 recall += 1
 
         fpr = num_collected - recall
-        print('recall = %d/%d = %f, fpr = %d/%d = %f' % (recall, num_poison, recall / num_poison,
+        print('recall = %d/%d = %f, fpr = %d/%d = %f' % (recall, num_poison, recall/num_poison if num_poison!=0 else 0,
                                                              fpr, num_samples - num_poison,
-                                                             fpr / (num_samples - num_poison)))
+                                                             fpr / (num_samples - num_poison) if (num_samples-num_poison)!=0 else 0))
 
     return distilled_samples_indices, median_sample_indices

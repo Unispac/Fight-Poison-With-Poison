@@ -6,11 +6,11 @@
 #SBATCH --mem-per-cpu=4G         # memory per cpu-core (4G is default)
 #SBATCH --gres=gpu:2            # number of gpus per node
 #SBATCH --time=4:00:00          # total run time limit (HH:MM:SS)
-#SBATCH --output=logs/cifar/ct_cleanse/clean_label.out
-#SBATCH --error=logs/cifar/ct_cleanse/clean_label.err
+#SBATCH --output=logs/gtsrb/ct_cleanse/adaptive_blend.out
+#SBATCH --error=logs/gtsrb/ct_cleanse/adaptive_blend.err
 
 module purge
 module load anaconda3/2022.5
 conda activate py38
 
-python -u ct_cleanser.py -dataset cifar10 -poison_type clean_label -poison_rate 0.005 -devices 0,1 -debug_info
+python -u ct_cleanser.py -dataset gtsrb -poison_type adaptive_blend -poison_rate 0.003 -cover_rate 0.003 -devices 0,1 -debug_info -alpha 0.15 -test_alpha 0.2
