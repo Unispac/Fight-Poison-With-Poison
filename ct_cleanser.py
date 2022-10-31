@@ -158,11 +158,12 @@ def iterative_poison_distillation(inspection_set, clean_set, params, args, debug
     return distilled_samples_indices, median_sample_indices, model
 
 
-"""
+
 # iterative confusion training
 distilled_samples_indices, median_sample_indices, model = iterative_poison_distillation(inspection_set,
-                                                clean_set, params, args, debug_packet, start_iter=0)"""
+                                                clean_set, params, args, debug_packet, start_iter=0)
 
+"""
 arch = params['arch']
 num_classes = params['num_classes']
 inspection_set_dir = params['inspection_set_dir']
@@ -170,17 +171,14 @@ model = arch(num_classes=num_classes)
 model.load_state_dict(torch.load(os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (7, args.seed))))
 model = nn.DataParallel(model)
 model = model.cuda()
-
-
 criterion_no_reduction = nn.CrossEntropyLoss(reduction='none')
 distilled_samples_indices, median_sample_indices = confusion_training.distill(args, params, inspection_set,
-                                                                7, criterion_no_reduction)
+                                                                7, criterion_no_reduction)"""
 
 print('to identify poison samples')
 # detect backdoor poison samples with the confused model
 suspicious_indices = confusion_training.identify_poison_samples(inspection_set, median_sample_indices,
                                                                 model, num_classes=params['num_classes'])
-
 
 
 # save indicies
@@ -201,9 +199,13 @@ if args.debug_info:
     pt = 0
     recall = 0
     for idx in suspicious_indices:
+        if pt >= num_poison:
+            break
         while(idx > poison_indices[pt] and pt+1 < num_poison) : pt+=1
-        if poison_indices[pt] == idx:
+        if pt < num_poison and poison_indices[pt] == idx:
             recall += 1
     fpr = num_collected - recall
-    print('recall = %d/%d = %f, fpr = %d/%d = %f' % (recall, num_poison, recall/num_poison,
-                                                fpr, num_samples - num_poison, fpr / (num_samples - num_poison)) )
+
+    print('recall = %d/%d = %f, fpr = %d/%d = %f' % (recall, num_poison, recall / num_poison if num_poison != 0 else 0,
+                                                     fpr, num_samples - num_poison,
+                                                     fpr / (num_samples - num_poison) if (num_samples - num_poison) != 0 else 0))
