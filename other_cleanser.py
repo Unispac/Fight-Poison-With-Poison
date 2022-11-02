@@ -5,23 +5,23 @@ import argparse
 from torch import nn
 import numpy as np
 import config
-from utils import supervisor, tools
+from utils import supervisor, tools, default_args
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-dataset', type=str, required=False,
-                    default=config.parser_default['dataset'],
-                    choices=config.parser_choices['dataset'])
+                    default=default_args.parser_default['dataset'],
+                    choices=default_args.parser_choices['dataset'])
 parser.add_argument('-poison_type', type=str,  required=False,
-                    choices=config.parser_choices['poison_type'],
-                    default=config.parser_default['poison_type'])
+                    choices=default_args.parser_choices['poison_type'],
+                    default=default_args.parser_default['poison_type'])
 parser.add_argument('-poison_rate', type=float,  required=False,
-                    choices=config.parser_choices['poison_rate'],
-                    default=config.parser_default['poison_rate'])
+                    choices=default_args.parser_choices['poison_rate'],
+                    default=default_args.parser_default['poison_rate'])
 parser.add_argument('-cover_rate', type=float,  required=False,
-                    choices=config.parser_choices['cover_rate'],
-                    default=config.parser_default['cover_rate'])
+                    choices=default_args.parser_choices['cover_rate'],
+                    default=default_args.parser_default['cover_rate'])
 parser.add_argument('-alpha', type=float,  required=False,
-                    default=config.parser_default['alpha'])
+                    default=default_args.parser_default['alpha'])
 parser.add_argument('-test_alpha', type=float,  required=False, default=None)
 parser.add_argument('-trigger', type=str,  required=False,
                     default=None)
@@ -34,7 +34,7 @@ parser.add_argument('-cleanser', type=str, required=True,
                     choices=['SCAn', 'AC', 'SS', 'Strip', 'CT', 'SPECTRE']) # scan, activation clustering, spectral signature
 parser.add_argument('-devices', type=str, default='0')
 parser.add_argument('-log', default=False, action='store_true')
-parser.add_argument('-seed', type=int, required=False, default=config.seed)
+parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
 
 args = parser.parse_args()
 

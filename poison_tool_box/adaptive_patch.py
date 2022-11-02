@@ -80,54 +80,54 @@ Poison with k triggers.
 # ]
 
 
-k = 4  # number of triggers
-trigger_names = [
-    # 'hellokitty_32.png',
-    # 'square_center_32.png',
-    # 'square_corner_32.png',
-    'phoenix_corner_32.png',
-    # 'phoenix_corner2_32.png',
-    # 'watermark_white_32.png',
-    'firefox_corner_32.png',
-    'badnet_patch4_32.png',
-    'trojan_square_32.png',
-    # 'trojan_watermark_32.png'
-]
-alphas = [
-    # 0.2,
-    0.5,
-    # 0.2,
-    0.2,
-    0.5,
-    0.3,
-    # 0.5
-]
+# k = 4  # number of triggers
+# trigger_names = [
+#     # 'hellokitty_32.png',
+#     # 'square_center_32.png',
+#     # 'square_corner_32.png',
+#     'phoenix_corner_32.png',
+#     # 'phoenix_corner2_32.png',
+#     # 'watermark_white_32.png',
+#     'firefox_corner_32.png',
+#     'badnet_patch4_32.png',
+#     'trojan_square_32.png',
+#     # 'trojan_watermark_32.png'
+# ]
+# alphas = [
+#     # 0.2,
+#     0.5,
+#     # 0.2,
+#     0.2,
+#     0.5,
+#     0.3,
+#     # 0.5
+# ]
 
-test_k = 2
-test_trigger_names = [
-    # 'hellokitty_32.png',
-    # 'square_center_32.png',
-    # 'square_corner_32.png',
-    # 'phoenix_corner_32.png',
-    'phoenix_corner2_32.png',
-    # 'watermark_white_32.png',
-    # 'firefox_corner_32.png',
-    'badnet_patch4_32.png',
-    # 'trojan_square_32.png',
-    # 'trojan_watermark_32.png'
-]
+# test_k = 2
+# test_trigger_names = [
+#     # 'hellokitty_32.png',
+#     # 'square_center_32.png',
+#     # 'square_corner_32.png',
+#     # 'phoenix_corner_32.png',
+#     'phoenix_corner2_32.png',
+#     # 'watermark_white_32.png',
+#     # 'firefox_corner_32.png',
+#     'badnet_patch4_32.png',
+#     # 'trojan_square_32.png',
+#     # 'trojan_watermark_32.png'
+# ]
 
-test_alphas = [
-    # 0.5,
-    # 0.5,
-    1,
-    1,
-]
+# test_alphas = [
+#     # 0.5,
+#     # 0.5,
+#     1,
+#     1,
+# ]
 
 
 class poison_generator():
 
-    def __init__(self, img_size, dataset, poison_rate, path, target_class=0, cover_rate=0.01):
+    def __init__(self, img_size, dataset, poison_rate, path, trigger_names, alphas, target_class=0, cover_rate=0.01):
 
         self.img_size = img_size
         self.dataset = dataset
@@ -146,7 +146,7 @@ class poison_generator():
         self.trigger_marks = []
         self.trigger_masks = []
         self.alphas = []
-        for i in range(k):
+        for i in range(len(trigger_names)):
             trigger_path = os.path.join(config.triggers_dir, trigger_names[i])
             trigger_mask_path = os.path.join(config.triggers_dir, 'mask_%s' % trigger_names[i])
 
@@ -186,6 +186,7 @@ class poison_generator():
 
         poison_id = []
         cover_id = []
+        k = len(self.trigger_marks)
 
         for i in range(self.num_img):
             img, gt = self.dataset[i]
@@ -235,7 +236,7 @@ class poison_generator():
 
 class poison_transform():
 
-    def __init__(self, img_size, target_class=0, denormalizer=None, normalizer=None):
+    def __init__(self, img_size, test_trigger_names, test_alphas, target_class=0, denormalizer=None, normalizer=None):
 
         self.img_size = img_size
         self.target_class = target_class
@@ -249,7 +250,7 @@ class poison_transform():
         self.trigger_marks = []
         self.trigger_masks = []
         self.alphas = []
-        for i in range(test_k):
+        for i in range(len(test_trigger_names)):
             trigger_path = os.path.join(config.triggers_dir, test_trigger_names[i])
             trigger_mask_path = os.path.join(config.triggers_dir, 'mask_%s' % test_trigger_names[i])
             trigger = Image.open(trigger_path).convert("RGB")
@@ -269,7 +270,7 @@ class poison_transform():
         data, labels = data.clone(), labels.clone()
 
         data = self.denormalizer(data)
-        for j in range(test_k):
+        for j in range(len(self.trigger_marks)):
             data = data + self.alphas[j] * self.trigger_masks[j] * (self.trigger_marks[j] - data)
         data = self.normalizer(data)
         labels[:] = self.target_class
