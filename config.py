@@ -49,9 +49,6 @@ arch = {
 }
 
 
-
-
-
 def get_params(args):
 
     if args.dataset == 'cifar10':
@@ -104,18 +101,18 @@ def get_params(args):
         raise NotImplementedError('<Unimplemented Dataset> %s' % args.dataset)
 
 
-    params ={
+    params = {
         'data_transform' : data_transform_normalize,
         'data_transform_aug' : data_transform_aug,
         'distillation_ratio' : [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
         'momentums' : [0.5, 0.5, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],
-        'lambs' : [25, 25, 100, 100, 100, 100, 25, 10], # 5 is ok
+        'lambs' : [25, 25, 50, 50, 50, 50, 25, 10], # 5 is ok
         'lrs' : [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
-        'batch_factors' : [2, 2, 4, 4, 4, 4, 2, 2],
+        'batch_factors' : [2, 2, 8, 8, 8, 8, 2, 2],
         'weight_decay' : 1e-4,
         'num_classes' : num_classes,
-        'batch_size' : 16, # best 32
-        'pretrain_epochs' : 20, # best 60
+        'batch_size' : 32, # best 32
+        'pretrain_epochs' : 20,
         'median_sample_rate': 0.1,
         'base_arch' :  arch[args.dataset],
         'arch' :  arch[args.dataset],

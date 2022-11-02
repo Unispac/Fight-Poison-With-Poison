@@ -197,26 +197,36 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
                 labels.append(0)
         projected_feats_isolated = projected_feats[isolated_indices_local]
 
-        mu = np.zeros((2,2))
-        covariance = np.zeros((2,2,2))
-        mu[0] = projected_feats_clean.mean(axis=0)
-        covariance[0] = np.cov(projected_feats_clean.T)
-        mu[1] = projected_feats_isolated.mean(axis=0)
-        covariance[1] = np.cov(projected_feats_isolated.T)
+        num_isolated = projected_feats_isolated.shape[0]
 
-        covariance += 0.01 # avoid singularity
+        print('num_isolated : ', num_isolated)
 
-        # likelihood ratio test
-        single_cluster_likelihood = 0
-        two_clusters_likelihood = 0
-        for i in range(num_samples_within_class):
-            single_cluster_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[0],
-                                                                    cov=covariance[0],
-                                                                    allow_singular=True).sum()
-            two_clusters_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[labels[i]],
-                                                                  cov=covariance[labels[i]], allow_singular=True).sum()
+        if num_isolated >= 2:
 
-        likelihood_ratio = np.exp((two_clusters_likelihood - single_cluster_likelihood) / num_samples_within_class)
+            mu = np.zeros((2,2))
+            covariance = np.zeros((2,2,2))
+            mu[0] = projected_feats_clean.mean(axis=0)
+            covariance[0] = np.cov(projected_feats_clean.T)
+            mu[1] = projected_feats_isolated.mean(axis=0)
+            covariance[1] = np.cov(projected_feats_isolated.T)
+
+            covariance += 0.1 # avoid singularity
+
+            # likelihood ratio test
+            single_cluster_likelihood = 0
+            two_clusters_likelihood = 0
+            for i in range(num_samples_within_class):
+                single_cluster_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[0],
+                                                                        cov=covariance[0],
+                                                                        allow_singular=True).sum()
+                two_clusters_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[labels[i]],
+                                                                      cov=covariance[labels[i]], allow_singular=True).sum()
+
+            likelihood_ratio = np.exp((two_clusters_likelihood - single_cluster_likelihood) / num_samples_within_class)
+
+        else:
+
+            likelihood_ratio = 1
 
         class_likelihood_ratio.append(likelihood_ratio)
 
