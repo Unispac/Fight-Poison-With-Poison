@@ -211,7 +211,7 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
         
         elif poison_type == 'adaptive_patch':
             from poison_tool_box import adaptive_patch
-            poison_transform = adaptive_patch.poison_transform(img_size=img_size, target_class=target_class, denormalizer=denormalizer, normalizer=normalizer,)
+            poison_transform = adaptive_patch.poison_transform(img_size=img_size, test_trigger_names=config.adaptive_patch_test_trigger_names[args.dataset], test_alphas=config.adaptive_patch_test_trigger_alphas[args.dataset], target_class=target_class, denormalizer=denormalizer, normalizer=normalizer,)
 
         elif poison_type == 'SIG':
 

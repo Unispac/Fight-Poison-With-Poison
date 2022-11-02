@@ -1,4 +1,4 @@
-from utils import ResNet, ember_nn
+from utils import resnet, vgg, mobilenetv2, ember_nn
 from utils import supervisor
 from utils import tools
 import torch
@@ -41,14 +41,72 @@ trigger_default = {
 
 arch = {
     ### for base model & poison distillation
-    'cifar10': ResNet.ResNet18,
-    'gtsrb' : ResNet.ResNet18,
-    'imagenette': ResNet.ResNet18,
+    'cifar10': resnet.ResNet18,
+    'gtsrb' : resnet.ResNet18,
+    'imagenette': resnet.ResNet18,
     'ember': ember_nn.EmberNN,
     #'abl':  wresnet.WideResNet
 }
 
 
+<<<<<<< HEAD
+=======
+# adapitve-patch triggers for different datasets
+adaptive_patch_train_trigger_names = {
+    'cifar10': [
+        'phoenix_corner_32.png',
+        'firefox_corner_32.png',
+        'badnet_patch4_32.png',
+        'trojan_square_32.png',
+    ],
+    'gtsrb': [
+        'phoenix_corner_32.png',
+        'firefox_corner_32.png',
+        'badnet_patch4_32.png',
+        'trojan_square_32.png',
+    ],
+}
+
+adaptive_patch_train_trigger_alphas = {
+    'cifar10': [
+        0.5,
+        0.2,
+        0.5,
+        0.3,
+    ],
+    'gtsrb': [
+        0.5,
+        0.2,
+        0.5,
+        0.3,
+    ],
+}
+
+adaptive_patch_test_trigger_names = {
+    'cifar10': [
+        'phoenix_corner2_32.png',
+        'badnet_patch4_32.png',
+    ],
+    'gtsrb': [
+        'firefox_corner_32.png',
+        'trojan_square_32.png',
+    ],
+}
+
+adaptive_patch_test_trigger_alphas = {
+    'cifar10': [
+        1,
+        1,
+    ],
+    'gtsrb': [
+        1,
+        1,
+    ],
+}
+
+
+
+>>>>>>> de1596cfe00537f3ad772d173689aa513e759b7c
 def get_params(args):
 
     if args.dataset == 'cifar10':
@@ -112,7 +170,11 @@ def get_params(args):
         'weight_decay' : 1e-4,
         'num_classes' : num_classes,
         'batch_size' : 32, # best 32
+<<<<<<< HEAD
         'pretrain_epochs' : 20,
+=======
+        'pretrain_epochs' : 60, # best 60
+>>>>>>> de1596cfe00537f3ad772d173689aa513e759b7c
         'median_sample_rate': 0.1,
         'base_arch' :  arch[args.dataset],
         'arch' :  arch[args.dataset],
