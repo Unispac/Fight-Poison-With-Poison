@@ -112,6 +112,143 @@ def constrained_GMM(init, chunklets, X, C):
     return p, mu, covariance, labels, clean_chunklet_label
 
 
+
+def identify_poison_samples_simplified(inspection_set, clean_indices, model, num_classes):
+
+    from scipy.stats import multivariate_normal
+
+    kwargs = {'num_workers': 4, 'pin_memory': True}
+    num_samples = len(inspection_set)
+
+    # main dataset we aim to cleanse
+    inspection_split_loader = torch.utils.data.DataLoader(
+        inspection_set,
+        batch_size=128, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
+
+    model.eval()
+    feats_inspection, class_labels_inspection, preds_inspection = get_features(inspection_split_loader, model)
+    feats_inspection = np.array(feats_inspection)
+    class_labels_inspection = np.array(class_labels_inspection)
+
+    class_indices = [[] for _ in range(num_classes)]
+    class_indices_in_clean_chunklet = [[] for _ in range(num_classes)]
+
+    for i in range(num_samples):
+        gt = class_labels_inspection[i]
+        class_indices[gt].append(i)
+
+    for i in clean_indices:
+        gt = class_labels_inspection[i]
+        class_indices_in_clean_chunklet[gt].append(i)
+
+    for i in range(num_classes):
+        class_indices[i].sort()
+        class_indices_in_clean_chunklet[i].sort()
+
+        if len(class_indices[i]) < 2:
+            raise Exception('dataset is too small for class %d' % i)
+
+        if len(class_indices_in_clean_chunklet[i]) < 2:
+            raise Exception('clean chunklet is too small for class %d' % i)
+
+    # apply cleanser, if the likelihood of two-clusters-model is twice of the likelihood of single-cluster-model
+    threshold = 5.0
+    suspicious_indices = []
+    class_likelihood_ratio = []
+
+    for target_class in range(num_classes):
+
+        num_samples_within_class = len(class_indices[target_class])
+        print('class-%d : ' % target_class, num_samples_within_class)
+        clean_chunklet_size = len(class_indices_in_clean_chunklet[target_class])
+        clean_chunklet_indices_within_class = []
+        pt = 0
+        for i in range(num_samples_within_class):
+            if pt == clean_chunklet_size:
+                break
+            if class_indices[target_class][i] < class_indices_in_clean_chunklet[target_class][pt]:
+                continue
+            else:
+                clean_chunklet_indices_within_class.append(i)
+                pt += 1
+
+        print('start_pca..')
+
+        temp_feats = torch.FloatTensor(
+            feats_inspection[class_indices[target_class]]).cuda()
+
+        print('direct 2-d')
+
+        # reduce dimensionality
+        U, S, V = torch.pca_lowrank(temp_feats, q=2)
+        projected_feats = torch.matmul(temp_feats, V[:, :2]).cpu()
+        projected_feats_clean = projected_feats[clean_chunklet_indices_within_class]
+
+        # isolate samples via the confused inference model
+        isolated_indices_global = []
+        isolated_indices_local = []
+        labels = []
+        for pt, i in enumerate(class_indices[target_class]):
+            if preds_inspection[i] == target_class:
+                isolated_indices_global.append(i)
+                isolated_indices_local.append(pt)
+                labels.append(1) # suspected as positive
+            else:
+                labels.append(0)
+        projected_feats_isolated = projected_feats[isolated_indices_local]
+
+        mu = np.zeros((2,2))
+        covariance = np.zeros((2,2,2))
+        mu[0] = projected_feats_clean.mean(axis=0)
+        covariance[0] = np.cov(projected_feats_clean.T)
+        mu[1] = projected_feats_isolated.mean(axis=0)
+        covariance[1] = np.cov(projected_feats_isolated.T)
+
+        # likelihood ratio test
+        single_cluster_likelihood = 0
+        two_clusters_likelihood = 0
+        for i in range(num_samples_within_class):
+            single_cluster_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[0],
+                                                                    cov=covariance[0],
+                                                                    allow_singular=True).sum()
+            two_clusters_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[labels[i]],
+                                                                  cov=covariance[labels[i]], allow_singular=True).sum()
+
+        likelihood_ratio = np.exp((two_clusters_likelihood - single_cluster_likelihood) / num_samples_within_class)
+
+        class_likelihood_ratio.append(likelihood_ratio)
+
+        print('likelihood_ratio = ', likelihood_ratio)
+
+    max_ratio = np.array(class_likelihood_ratio).max()
+
+    for target_class in range(num_classes):
+        likelihood_ratio = class_likelihood_ratio[target_class]
+
+        if likelihood_ratio == max_ratio and likelihood_ratio > 1.5:  # a lower conservative threshold for maximum ratio
+
+            print('[class-%d] class with maximal ratio %f!. Apply Cleanser!' % (target_class, max_ratio))
+
+            for i in class_indices[target_class]:
+                if preds_inspection[i] == target_class:
+                    suspicious_indices.append(i)
+
+        elif likelihood_ratio > threshold:
+            print('[class-%d] likelihood_ratio = %f > threshold = %f. Apply Cleanser!' % (
+                target_class, likelihood_ratio, threshold))
+
+            for i in class_indices[target_class]:
+                if preds_inspection[i] == target_class:
+                    suspicious_indices.append(i)
+
+        else:
+            print('[class-%d] likelihood_ratio = %f <= threshold = %f. Pass!' % (
+                target_class, likelihood_ratio, threshold))
+
+    return suspicious_indices
+
+
+
 # use the confused model to identify backdoor poison samples
 def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
 
@@ -127,7 +264,7 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
     # main dataset we aim to cleanse
     inspection_split_loader = torch.utils.data.DataLoader(
         inspection_set,
-        batch_size=128, shuffle=False, **kwargs)
+        batch_size=128, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
     feats_inspection, class_labels_inspection, preds_inspection = get_features(inspection_split_loader, model)
     feats_inspection = np.array(feats_inspection)
@@ -204,8 +341,6 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
         L = torch.diag(L)
         normalizer = torch.matmul(V, torch.matmul(L, V.T))
         temp_feats = torch.matmul(normalizer, temp_feats.T).T
-
-
 
         # reduce dimensionality
         U, S, V = torch.pca_lowrank(temp_feats, q = 2)
@@ -458,7 +593,7 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction):
     model = nn.DataParallel(model)
     model = model.cuda()
     inspection_set_loader = torch.utils.data.DataLoader(inspection_set, batch_size=params['batch_size'],
-                                                            shuffle=False, **kwargs)
+                                                            shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
     """
         Collect loss values for inspected samples.

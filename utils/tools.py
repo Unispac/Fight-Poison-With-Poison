@@ -148,9 +148,7 @@ def test(model, test_loader, poison_test = False, poison_transform=None, num_cla
 
 
 def test_ember(model, test_loader, backdoor_test_loader):
-
     model.eval()
-
     clean_correct = 0
     tot = 0
     with torch.no_grad():
@@ -174,19 +172,24 @@ def test_ember(model, test_loader, backdoor_test_loader):
 
     adv_wrong = tot - adv_correct
     print('<asr> %d/%d = %f' % (adv_wrong, tot, adv_wrong/tot))
-
     return
 
 def setup_seed(seed):
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
     torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
+    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+    np.random.seed(seed)  # Numpy module.
+    random.seed(seed)  # Python random module.
+    torch.use_deterministic_algorithms(True) # for pytorch >= 1.8
+    torch.backends.cudnn.enabled = False
     torch.backends.cudnn.benchmark = False
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+    os.environ['PYTHONHASHSEED'] = str(seed)
 
+def worker_init(worked_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 def save_dataset(dataset, path):
     num = len(dataset)

@@ -45,6 +45,8 @@ if args.trigger is None:
 batch_size = 128
 kwargs = {'num_workers': 4, 'pin_memory': True}
 
+tools.setup_seed(args.seed)
+
 
 if args.dataset == 'cifar10':
 
@@ -126,7 +128,7 @@ test_set = tools.IMG_Dataset(data_dir=test_set_img_dir,
                              label_path=test_set_label_path, transforms=data_transform)
 test_set_loader = torch.utils.data.DataLoader(
     test_set,
-    batch_size=batch_size, shuffle=False, **kwargs)
+    batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
 # Poison Transform for Testing
 poison_transform = supervisor.get_poison_transform(poison_type=args.poison_type, dataset_name=args.dataset,

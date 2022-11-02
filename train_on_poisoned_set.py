@@ -194,7 +194,7 @@ else:
 
 poisoned_set_loader = torch.utils.data.DataLoader(
     poisoned_set,
-    batch_size=batch_size, shuffle=True, **kwargs)
+    batch_size=batch_size, shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
 
 poison_indices = torch.tensor(torch.load(poison_indices_path)).cuda()
 
@@ -209,7 +209,7 @@ if args.dataset != 'ember':
                                  label_path=test_set_label_path, transforms=data_transform)
     test_set_loader = torch.utils.data.DataLoader(
         test_set,
-        batch_size=batch_size, shuffle=False, **kwargs)
+        batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
     # Poison Transform for Testing
     poison_transform = supervisor.get_poison_transform(poison_type=args.poison_type, dataset_name=args.dataset,
@@ -227,7 +227,7 @@ else:
                                         stats_path = stats_path)
     test_set_loader = torch.utils.data.DataLoader(
         test_set,
-        batch_size=batch_size, shuffle=False, **kwargs)
+        batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
 
     backdoor_test_set_dir = os.path.join('poisoned_train_set', 'ember', args.ember_options)
@@ -235,7 +235,7 @@ else:
                                        y_path=None, stats_path=stats_path)
     backdoor_test_set_loader = torch.utils.data.DataLoader(
         backdoor_test_set,
-        batch_size=batch_size, shuffle=False, **kwargs)
+        batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
 
 
@@ -288,7 +288,7 @@ for epoch in range(1, epochs+1):  # train backdoored base model
         loss.backward()
         optimizer.step()
 
-    print('\n<Backdoor Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.2f}'.format(epoch, loss.item(), optimizer.param_groups[0]['lr']))
+    print('\n<Backdoor Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}'.format(epoch, loss.item(), optimizer.param_groups[0]['lr']))
     scheduler.step()
 
     # Test

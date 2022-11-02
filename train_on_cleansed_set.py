@@ -142,7 +142,7 @@ cleansed_set = torch.utils.data.Subset(poisoned_set, cleansed_set_indices)
 train_set = cleansed_set
 train_loader = torch.utils.data.DataLoader(
     train_set,
-    batch_size=batch_size, shuffle=True, **kwargs)
+    batch_size=batch_size, shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
 
 
 
@@ -154,7 +154,7 @@ test_set = tools.IMG_Dataset(data_dir=test_set_img_dir, label_path=test_set_labe
                                  transforms=data_transform_no_aug)
 test_set_loader = torch.utils.data.DataLoader(
     test_set,
-    batch_size=batch_size, shuffle=True, **kwargs)
+    batch_size=batch_size, shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
 
 
 

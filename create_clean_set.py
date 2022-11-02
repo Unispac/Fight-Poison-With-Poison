@@ -6,15 +6,14 @@ from torchvision.utils import save_image
 import argparse
 import random
 import config
-from utils import default_args
+from utils import default_args, tools
 
 """
 <Four Data Sets>
 GTSRB, CIFAR10, CIFAR100, Imagenette (imagenet subset)
 """
 
-torch.manual_seed(666)
-random.seed(666)
+
 
 
 parser = argparse.ArgumentParser()
@@ -25,6 +24,9 @@ parser.add_argument('-clean_budget', type=int, default=2000)
 # by defaut :  we assume 2000 clean samples for defensive purpose
 
 args = parser.parse_args()
+
+tools.setup_seed(0)
+
 
 
 """

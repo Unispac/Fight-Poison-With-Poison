@@ -5,7 +5,7 @@ import argparse
 from PIL import Image
 import numpy as np
 import config
-from utils import supervisor, default_args
+from utils import supervisor, default_args, tools
 
 parser = argparse.ArgumentParser()
 
@@ -26,6 +26,9 @@ parser.add_argument('-alpha', type=float,  required=False,
 parser.add_argument('-trigger', type=str,  required=False,
                     default=None)
 args = parser.parse_args()
+
+tools.setup_seed(0)
+
 
 print('[target class : %d]' % config.target_class[args.dataset])
 

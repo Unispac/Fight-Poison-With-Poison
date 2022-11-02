@@ -346,6 +346,7 @@ for vid, path in enumerate(model_list):
 
         if args.method == 'pca':
             visualizer = PCA(n_components=2)
+
         elif args.method == 'tsne':
             visualizer = TSNE(n_components=2)
         elif args.method == 'oracle':

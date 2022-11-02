@@ -50,6 +50,8 @@ arch = {
 
 
 
+
+
 def get_params(args):
 
     if args.dataset == 'cifar10':
@@ -107,9 +109,9 @@ def get_params(args):
         'data_transform_aug' : data_transform_aug,
         'distillation_ratio' : [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
         'momentums' : [0.5, 0.5, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],
-        'lambs' : [25, 25, 50, 50, 50, 50, 25, 10],
+        'lambs' : [25, 25, 100, 100, 100, 100, 25, 10], # 5 is ok
         'lrs' : [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
-        'batch_factors' : [2, 2, 8, 8, 8, 8, 2, 1],
+        'batch_factors' : [2, 2, 4, 4, 4, 4, 2, 2],
         'weight_decay' : 1e-4,
         'num_classes' : num_classes,
         'batch_size' : 32,
@@ -127,6 +129,12 @@ def get_params(args):
         'lambs' : [25, 25, 25, 50, 50, 50, 25, 5],
         'lrs' : [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
         'batch_factors' : [2, 2, 2, 8, 8, 8, 2, 1],
+    #########################################################################
+    'distillation_ratio' : [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
+        'momentums' : [0.5, 0.5, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],
+        'lambs' : [25, 25, 50, 50, 50, 50, 25, 10],
+        'lrs' : [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+        'batch_factors' : [2, 2, 8, 8, 8, 8, 2, 1],
     """
 
 
@@ -167,7 +175,7 @@ def get_packet_for_debug(poison_set_dir, data_transform, batch_size, args):
     kwargs = {'num_workers': 2, 'pin_memory': True}
     test_set_loader = torch.utils.data.DataLoader(
         test_set,
-        batch_size=batch_size, shuffle=True, **kwargs)
+        batch_size=batch_size, shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
 
     trigger_transform = data_transform
     poison_transform = supervisor.get_poison_transform(poison_type=args.poison_type, dataset_name=args.dataset,

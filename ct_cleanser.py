@@ -90,7 +90,7 @@ def iterative_poison_distillation(inspection_set, clean_set, params, args, debug
 
     clean_set_loader = torch.utils.data.DataLoader(
         clean_set, batch_size=params['batch_size'],
-        shuffle=True, **kwargs)
+        shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
 
     print('>>> Iterative Data Distillation with Confusion Training')
 
@@ -124,15 +124,21 @@ def iterative_poison_distillation(inspection_set, clean_set, params, args, debug
         freq_of_each_class = np.sqrt(freq_of_each_class + 0.001)
 
         if confusion_iter >= 4 :
+
+            if confusion_iter == num_confusion_iter-1:
+                freq_of_each_class[:] = 1
+
             lr = lrs[confusion_iter]
             distilled_set_loader = torch.utils.data.DataLoader(
                 torch.utils.data.ConcatDataset([distilled_set, clean_set]),
-                batch_size=params['batch_size'], shuffle=True, **kwargs)
+                batch_size=params['batch_size'], shuffle=True,
+                worker_init_fn=tools.worker_init, **kwargs)
         else:
             lr = lrs[confusion_iter]
             distilled_set_loader = torch.utils.data.DataLoader(
                 distilled_set,
-                batch_size=params['batch_size'], shuffle=True, **kwargs)
+                batch_size=params['batch_size'], shuffle=True,
+                worker_init_fn=tools.worker_init, **kwargs)
 
         # pretrain base model
         confusion_training.pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epochs,
@@ -141,7 +147,8 @@ def iterative_poison_distillation(inspection_set, clean_set, params, args, debug
 
         distilled_set_loader = torch.utils.data.DataLoader(
             distilled_set,
-            batch_size=params['batch_size'], shuffle=True, **kwargs)
+            batch_size=params['batch_size'], shuffle=True,
+            worker_init_fn=tools.worker_init, **kwargs)
 
         # confusion_training
         model = confusion_training.confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
@@ -168,7 +175,7 @@ arch = params['arch']
 num_classes = params['num_classes']
 inspection_set_dir = params['inspection_set_dir']
 model = arch(num_classes=num_classes)
-model.load_state_dict(torch.load(os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (7, args.seed))))
+model.load_state_dict(torch.load(os.path.join(inspection_set_dir, 'confused_%d_seed=%d.pt' % (7, args.seed))))
 model = nn.DataParallel(model)
 model = model.cuda()
 criterion_no_reduction = nn.CrossEntropyLoss(reduction='none')
@@ -177,7 +184,7 @@ distilled_samples_indices, median_sample_indices = confusion_training.distill(ar
 
 print('to identify poison samples')
 # detect backdoor poison samples with the confused model
-suspicious_indices = confusion_training.identify_poison_samples(inspection_set, median_sample_indices,
+suspicious_indices = confusion_training.identify_poison_samples_simplified(inspection_set, median_sample_indices,
                                                                 model, num_classes=params['num_classes'])
 
 
