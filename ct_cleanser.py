@@ -30,7 +30,7 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch import nn
-from utils import supervisor, tools, ResNet
+from utils import supervisor, tools, resnet
 import config
 import confusion_training
 

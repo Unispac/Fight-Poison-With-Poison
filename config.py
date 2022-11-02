@@ -49,8 +49,6 @@ arch = {
 }
 
 
-<<<<<<< HEAD
-=======
 # adapitve-patch triggers for different datasets
 adaptive_patch_train_trigger_names = {
     'cifar10': [
@@ -105,8 +103,6 @@ adaptive_patch_test_trigger_alphas = {
 }
 
 
-
->>>>>>> de1596cfe00537f3ad772d173689aa513e759b7c
 def get_params(args):
 
     if args.dataset == 'cifar10':
@@ -170,11 +166,7 @@ def get_params(args):
         'weight_decay' : 1e-4,
         'num_classes' : num_classes,
         'batch_size' : 32, # best 32
-<<<<<<< HEAD
         'pretrain_epochs' : 20,
-=======
-        'pretrain_epochs' : 60, # best 60
->>>>>>> de1596cfe00537f3ad772d173689aa513e759b7c
         'median_sample_rate': 0.1,
         'base_arch' :  arch[args.dataset],
         'arch' :  arch[args.dataset],
