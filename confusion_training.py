@@ -204,6 +204,8 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
         mu[1] = projected_feats_isolated.mean(axis=0)
         covariance[1] = np.cov(projected_feats_isolated.T)
 
+        covariance += 0.01 # avoid singularity
+
         # likelihood ratio test
         single_cluster_likelihood = 0
         two_clusters_likelihood = 0
@@ -444,7 +446,7 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
     model = nn.DataParallel(model)
     model = model.cuda()
     optimizer = torch.optim.SGD(model.parameters(), 0.1,  momentum=0.9, weight_decay=weight_decay)
-    scheduler = MultiStepLR(optimizer, milestones=[30, 45], gamma=0.1)
+    scheduler = MultiStepLR(optimizer, milestones=[10, 15], gamma=0.1) # [30, 45]
 
     for epoch in range(1, pretrain_epochs + 1):  # pretrain backdoored base model with the distilled set
         model.train()
@@ -457,7 +459,7 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
             loss.backward()
             optimizer.step()
 
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             print('<Round-{} : Pretrain> Train Epoch: {}/{} \tLoss: {:.6f}'.format(confusion_iter, epoch, pretrain_epochs, loss.item()))
             if args.debug_info:
                 model.eval()
