@@ -4,8 +4,9 @@ assets/pca*
 assets/tsne*
 assets/oracle*
 
-data/cifar10/*
-!data/cifar10/.dummy
+data/cifar10/cifar*
+data/cifar10/clean_label/*
+!data/cifar10/clean_label/setup.sh
 data/gtsrb/*
 !data/gtsrb/.dummy
 data/imagenette2/*
@@ -36,6 +37,9 @@ cleansers_tool_box/spectre/output/*
 other_defenses_tool_box/logs
 other_defenses_tool_box/results/*
 !other_defenses_tool_box/results/.dummy
+
+slurm_scripts/logs
+slurm-*.out
 
 nohup.out
 *.slurm

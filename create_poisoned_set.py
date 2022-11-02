@@ -96,6 +96,41 @@ if args.poison_type == 'dynamic':
     else:
         raise  NotImplementedError('Undefined Dataset')
 
+elif args.poison_type == 'ISSBA':
+
+    if args.dataset == 'cifar10':
+
+        data_transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+        train_set = datasets.CIFAR10(os.path.join(data_dir, 'cifar10'), train=True,
+                                     download=True, transform=data_transform)
+        img_size = 32
+        num_classes = 10
+        input_channel = 3
+
+        ckpt_path = './models/ISSBA_cifar10.pth'
+
+    elif args.dataset == 'gtsrb':
+
+        data_transform = transforms.Compose([
+            transforms.Resize((32, 32)),
+            transforms.ToTensor(),
+        ])
+        train_set = datasets.GTSRB(os.path.join(data_dir, 'gtsrb'), split='train',
+                                   transform=data_transform, download=True)
+
+        img_size = 32
+        num_classes = 43
+        input_channel = 3
+
+        ckpt_path = './models/ISSBA_gtsrb.pth'
+
+    elif args.dataset == 'imagenette':
+        raise  NotImplementedError('imagenette unsupported!')
+    else:
+        raise  NotImplementedError('Undefined Dataset')
+
 else:
 
     if args.dataset == 'gtsrb':
@@ -148,9 +183,9 @@ if not os.path.exists(poison_set_img_dir):
 
 
 
-if args.poison_type in ['badnet', 'blend', 'clean_label',
+if args.poison_type in ['badnet', 'blend', 'clean_label', 'refool',
                         'adaptive', 'adaptive_blend', 'adaptive_patch',
-                        'SIG', 'TaCT', 'sleeper_agent', 'none', 'universal']:
+                        'SIG', 'TaCT', 'WaNet', 'sleeper_agent', 'none', 'universal']:
 
     trigger_name = args.trigger
     trigger_path = os.path.join(config.triggers_dir, trigger_name)
@@ -193,6 +228,12 @@ if args.poison_type in ['badnet', 'blend', 'clean_label',
                                                   poison_rate=args.poison_rate, trigger=trigger,
                                                   path=poison_set_img_dir, target_class=config.target_class[args.dataset],
                                                   alpha=alpha)
+    elif args.poison_type == 'refool':
+        from poison_tool_box import refool
+        poison_generator = refool.poison_generator(img_size=img_size, dataset=train_set,
+                                                  poison_rate=args.poison_rate,
+                                                  path=poison_set_img_dir, target_class=config.target_class[args.dataset],
+                                                  max_image_size=32)
 
     elif args.poison_type == 'TaCT':
 
@@ -203,6 +244,13 @@ if args.poison_type in ['badnet', 'blend', 'clean_label',
                                                  path=poison_set_img_dir, target_class=config.target_class[args.dataset],
                                                  source_class=config.source_class,
                                                  cover_classes=config.cover_classes)
+
+    elif args.poison_type == 'WaNet':
+
+        from poison_tool_box import WaNet
+        poison_generator = WaNet.poison_generator(img_size=img_size, dataset=train_set,
+                                                 poison_rate=args.poison_rate, cover_rate=args.cover_rate,
+                                                 path=poison_set_img_dir, target_class=config.target_class[args.dataset])
 
     elif args.poison_type == 'adaptive':
 
@@ -273,7 +321,7 @@ if args.poison_type in ['badnet', 'blend', 'clean_label',
 
 
 
-    if args.poison_type not in ['TaCT', 'adaptive', 'adaptive_blend', 'adaptive_patch']:
+    if args.poison_type not in ['TaCT', 'WaNet', 'adaptive', 'adaptive_blend', 'adaptive_patch']:
         poison_indices, label_set = poison_generator.generate_poisoned_training_set()
         print('[Generate Poisoned Set] Save %d Images' % len(label_set))
 
@@ -311,6 +359,34 @@ elif args.poison_type == 'dynamic':
     poison_generator = dynamic.poison_generator(ckpt_path=ckpt_path, channel_init=channel_init, steps=steps,
                                                 input_channel=input_channel, normalizer=normalizer,
                                                 denormalizer=denormalizer, dataset=train_set,
+                                                poison_rate=args.poison_rate, path=poison_set_img_dir, target_class=config.target_class[args.dataset])
+
+    # Generate Poison Data
+    poison_indices, label_set = poison_generator.generate_poisoned_training_set()
+    print('[Generate Poisoned Set] Save %d Images' % len(label_set))
+
+    label_path = os.path.join(poison_set_dir, 'labels')
+    torch.save(label_set, label_path)
+    print('[Generate Poisoned Set] Save %s' % label_path)
+
+    poison_indices_path = os.path.join(poison_set_dir, 'poison_indices')
+    torch.save(poison_indices, poison_indices_path)
+    print('[Generate Poisoned Set] Save %s' % poison_indices_path)
+
+elif args.poison_type == 'ISSBA':
+    # if not os.path.exists(ckpt_path):
+    #     raise NotImplementedError('[ISSBA Attack] Download pretrained encoder and decoder first: https://github.com/')
+    
+    # Init Secret
+    secret_size = 20
+    secret = torch.FloatTensor(np.random.binomial(1, .5, secret_size).tolist())
+    secret_path = os.path.join(poison_set_dir, 'secret')
+    torch.save(secret, secret_path)
+    print('[Generate Poisoned Set] Save %s' % secret_path)
+    
+    # Init Attacker
+    from poison_tool_box import ISSBA
+    poison_generator = ISSBA.poison_generator(ckpt_path=ckpt_path, secret=secret, dataset=train_set, enc_height=img_size, enc_width=img_size, enc_in_channel=input_channel,
                                                 poison_rate=args.poison_rate, path=poison_set_img_dir, target_class=config.target_class[args.dataset])
 
     # Generate Poison Data
