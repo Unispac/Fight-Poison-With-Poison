@@ -134,11 +134,11 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
     class_indices_in_clean_chunklet = [[] for _ in range(num_classes)]
 
     for i in range(num_samples):
-        gt = class_labels_inspection[i]
+        gt = int(class_labels_inspection[i])
         class_indices[gt].append(i)
 
     for i in clean_indices:
-        gt = class_labels_inspection[i]
+        gt = int(class_labels_inspection[i])
         class_indices_in_clean_chunklet[gt].append(i)
 
     for i in range(num_classes):
@@ -177,7 +177,6 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
         temp_feats = torch.FloatTensor(
             feats_inspection[class_indices[target_class]]).cuda()
 
-        print('direct 2-d')
 
         # reduce dimensionality
         U, S, V = torch.pca_lowrank(temp_feats, q=2)
@@ -210,7 +209,9 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
             mu[1] = projected_feats_isolated.mean(axis=0)
             covariance[1] = np.cov(projected_feats_isolated.T)
 
-            covariance += 0.1 # avoid singularity
+            covariance += 0.01
+
+            # avoid singularity
 
             # likelihood ratio test
             single_cluster_likelihood = 0
@@ -286,11 +287,11 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
     class_indices_in_clean_chunklet = [[] for _ in range(num_classes)]
 
     for i in range(num_samples):
-        gt = class_labels_inspection[i]
+        gt = int(class_labels_inspection[i])
         class_indices[gt].append(i)
 
     for i in clean_indices:
-        gt = class_labels_inspection[i]
+        gt = int(class_labels_inspection[i])
         class_indices_in_clean_chunklet[gt].append(i)
 
     for i in range(num_classes):
@@ -444,19 +445,19 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
 
 # pretraining on the poisoned datast to learn a prior of the backdoor
 def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epochs, distilled_set_loader, criterion,
-             inspection_set_dir, confusion_iter):
+             inspection_set_dir, confusion_iter, lr, load = True, dataset_name=None):
 
     ######### Pretrain Base Model ##############
     model = arch(num_classes=num_classes)
 
-    if confusion_iter != 0:
+    if confusion_iter != 0 and load:
         ckpt_path = os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (confusion_iter-1, args.seed))
         model.load_state_dict( torch.load(ckpt_path) )
 
+
     model = nn.DataParallel(model)
     model = model.cuda()
-    optimizer = torch.optim.SGD(model.parameters(), 0.1,  momentum=0.9, weight_decay=weight_decay)
-    scheduler = MultiStepLR(optimizer, milestones=[10, 15], gamma=0.1) # [30, 45]
+    optimizer = torch.optim.SGD(model.parameters(), lr,  momentum=0.9, weight_decay=weight_decay)
 
     for epoch in range(1, pretrain_epochs + 1):  # pretrain backdoored base model with the distilled set
         model.train()
@@ -473,10 +474,14 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
             print('<Round-{} : Pretrain> Train Epoch: {}/{} \tLoss: {:.6f}'.format(confusion_iter, epoch, pretrain_epochs, loss.item()))
             if args.debug_info:
                 model.eval()
-                tools.test(model=model, test_loader=debug_packet['test_set_loader'], poison_test=True,
+
+                if dataset_name != 'ember':
+                    tools.test(model=model, test_loader=debug_packet['test_set_loader'], poison_test=True,
                            poison_transform=debug_packet['poison_transform'], num_classes=num_classes,
                            source_classes=debug_packet['source_classes'])
-        scheduler.step()
+                else:
+                    tools.test_ember(model=model, test_loader=debug_packet['test_set_loader'],
+                                     backdoor_test_loader=debug_packet['backdoor_test_set_loader'])
 
     base_ckpt = model.module.state_dict()
     torch.save(base_ckpt, os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (confusion_iter, args.seed)))
@@ -488,7 +493,7 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
 # confusion training : joint training on the poisoned dataset and a randomly labeled small clean set (i.e. confusion set)
 def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
                     num_classes, inspection_set_dir, weight_decay, criterion_no_reduction,
-                    momentum, lamb, freq, lr, batch_factor):
+                    momentum, lamb, freq, lr, batch_factor, distillation_iters, dataset_name = None):
 
     ######### Distillation Step ################
     model = arch(num_classes=num_classes)
@@ -503,7 +508,6 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
 
     distilled_set_iters = iter(distilled_set_loader)
     clean_set_iters = iter(clean_set_loader)
-    distillation_iters = 6000
 
     for batch_idx in range(distillation_iters):
         model.train()
@@ -514,14 +518,18 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
             clean_set_iters = iter(clean_set_loader)
             data_shift, target_shift = next(clean_set_iters)
         data_shift, target_shift = data_shift.cuda(), target_shift.cuda()
-        target_clean = (target_shift + num_classes - 1) % num_classes
 
-        s = len(target_clean)
-        target_confusion = torch.randint(high=num_classes, size=(s,)).cuda()
-        for i in range(s):
-            if target_confusion[i] == target_clean[i]:
-                # make sure the confusion set is never correctly labeled
-                target_confusion[i] = (target_confusion[i] + 1) % num_classes
+
+        if dataset_name != 'ember':
+            target_clean = (target_shift + num_classes - 1) % num_classes
+            s = len(target_clean)
+            target_confusion = torch.randint(high=num_classes, size=(s,)).cuda()
+            for i in range(s):
+                if target_confusion[i] == target_clean[i]:
+                    # make sure the confusion set is never correctly labeled
+                    target_confusion[i] = (target_confusion[i] + 1) % num_classes
+        else:
+           target_confusion = target_shift
 
         if batch_idx % batch_factor == 0:
 
@@ -539,16 +547,31 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
             output_mix = model(data_mix)
             loss_mix = criterion_no_reduction(output_mix, target_mix)
 
+
+            loss_inspection_batch_all = loss_mix[boundary:]
+            #loss_inspection_batch = loss_inspection_batch_all.mean()
+
             loss_confusion_batch_all = loss_mix[:boundary]
             loss_confusion_batch = loss_confusion_batch_all.mean()
 
-            loss_inspection_batch_all = loss_mix[boundary:]
+
+            """
+            confusion_batch_size = len(target_clean)
+            loss_confusion_batch = 0
+            normalizer = 0
+            for i in range(confusion_batch_size):
+                gt = target_clean[i].item()
+                loss_confusion_batch += (loss_confusion_batch_all[i] * freq[gt])
+                normalizer += freq[gt]
+            loss_confusion_batch = loss_confusion_batch / normalizer"""
+
+
             target_inspection_batch_all = target_mix[boundary:]
             inspection_batch_size = len(loss_inspection_batch_all)
             loss_inspection_batch = 0
             normalizer = 0
             for i in range(inspection_batch_size):
-                gt = target_inspection_batch_all[i].item()
+                gt = int(target_inspection_batch_all[i].item())
                 loss_inspection_batch += (loss_inspection_batch_all[i] / freq[gt])
                 normalizer += (1 / freq[gt])
             loss_inspection_batch = loss_inspection_batch / normalizer
@@ -575,11 +598,14 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
 
             if args.debug_info:
                 model.eval()
-                tools.test(model=model, test_loader=debug_packet['test_set_loader'],
-                           poison_test=True,
-                           poison_transform=debug_packet['poison_transform'],
-                           num_classes=num_classes,
+
+                if dataset_name != 'ember':
+                    tools.test(model=model, test_loader=debug_packet['test_set_loader'], poison_test=True,
+                           poison_transform=debug_packet['poison_transform'], num_classes=num_classes,
                            source_classes=debug_packet['source_classes'])
+                else:
+                    tools.test_ember(model=model, test_loader=debug_packet['test_set_loader'],
+                                     backdoor_test_loader=debug_packet['backdoor_test_set_loader'])
 
     torch.save( model.module.state_dict(),
                os.path.join(inspection_set_dir, 'confused_%d_seed=%d.pt' % (confusion_iter, args.seed)) )
@@ -589,7 +615,7 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
 
 
 # restore from a certain iteration step
-def distill(args, params, inspection_set, n_iter, criterion_no_reduction):
+def distill(args, params, inspection_set, n_iter, criterion_no_reduction, dataset_name = None, final_budget = None):
 
     kwargs = params['kwargs']
     inspection_set_dir = params['inspection_set_dir']
@@ -619,7 +645,12 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction):
         for data, target in inspection_set_loader:
             data, target = data.cuda(), target.cuda()
             output = model(data)
-            preds = torch.argmax(output, dim=1)
+
+            if dataset_name != 'ember':
+                preds = torch.argmax(output, dim=1)
+            else:
+                preds = (output >= 0.5).float()
+
             batch_loss = criterion_no_reduction(output, target)
 
             this_batch_size = len(target)
@@ -648,26 +679,50 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction):
             head = list(head)
             distilled_samples_indices = head
 
-        median_sample_indices = None
+        class_dist = np.zeros(num_classes, dtype=int)
+        for t in distilled_samples_indices:
+            _, gt = inspection_set[t]
+            gt = int(gt.item())
+            class_dist[gt] += 1
+
+        top_indices_each_class = [[] for _ in range(num_classes)]
+        for t in sorted_indices:
+            _, gt = inspection_set[t]
+            gt = int(gt.item())
+            top_indices_each_class[gt].append(t)
+
+
+        if n_iter < num_confusion_iter - 2:
+            for i in range(num_classes):
+                minimal_sample_num = len(top_indices_each_class[i]) // 50  # 2% of each class
+                if class_dist[i] < minimal_sample_num:
+                    for k in range(class_dist[i], minimal_sample_num):
+                        distilled_samples_indices.append(top_indices_each_class[i][k])
 
     else:
+        if final_budget is not None:
+            head = sorted_indices[:final_budget]
+            head = list(head)
+            distilled_samples_indices = head
+        else:
+            distilled_samples_indices = head = correct_instances
 
-        distilled_samples_indices = head = correct_instances
+    distilled_samples_indices.sort()
 
-        median_sample_rate = params['median_sample_rate']
+    median_sample_rate = params['median_sample_rate']
+    median_sample_indices = []
+    sorted_indices_each_class = [[] for _ in range(num_classes)]
+    for temp_id in sorted_indices:
+        _, gt = inspection_set[temp_id]
+        gt = int(gt.item())
+        sorted_indices_each_class[gt].append(temp_id)
 
-        median_sample_indices = []
-        sorted_indices_each_class = [[] for _ in range(num_classes)]
-        for temp_id in sorted_indices:
-            _, gt = inspection_set[temp_id]
-            sorted_indices_each_class[gt.item()].append(temp_id)
-
-        for i in range(num_classes):
-            num_class_i = len(sorted_indices_each_class[i])
-            st = int(num_class_i / 2 - num_class_i * median_sample_rate / 2)
-            ed = int(num_class_i / 2 + num_class_i * median_sample_rate / 2)
-            for temp_id in range(st, ed):
-                median_sample_indices.append(sorted_indices_each_class[i][temp_id])
+    for i in range(num_classes):
+        num_class_i = len(sorted_indices_each_class[i])
+        st = int(num_class_i / 2 - num_class_i * median_sample_rate / 2)
+        ed = int(num_class_i / 2 + num_class_i * median_sample_rate / 2)
+        for temp_id in range(st, ed):
+            median_sample_indices.append(sorted_indices_each_class[i][temp_id])
 
     """
         Report statistics of the distillation results.
