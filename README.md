@@ -78,7 +78,7 @@ python train_on_poisoned_set.py -dataset=cifar10 -poison_type=adaptive_blend -po
 python visualize.py -method=$METHOD -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.005 -cover_rate=0.005
 
 # **Cleanse with Confusion Training**
-python poison_cleander_iter.py -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.005 -cover_rate=0.005
+python ct_cleanser.py -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.005 -cover_rate=0.005 -debug_info
 
 # Cleanse with other cleansers
 ## $CLEANSER = ['SCAn', 'AC', 'SS', 'Strip', 'SPECTRE']

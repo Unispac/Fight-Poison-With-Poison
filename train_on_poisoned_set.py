@@ -115,9 +115,6 @@ else:
 
 
 
-
-batch_size = 128
-
 if args.dataset == 'cifar10':
 
     num_classes = 10
@@ -127,6 +124,7 @@ if args.dataset == 'cifar10':
     epochs = 200
     milestones = torch.tensor([100, 150])
     learning_rate = 0.1
+    batch_size = 256
 
 elif args.dataset == 'gtsrb':
 
@@ -137,6 +135,7 @@ elif args.dataset == 'gtsrb':
     epochs = 100
     milestones = torch.tensor([40, 80])
     learning_rate = 0.1
+    batch_size = 256
 
 elif args.dataset == 'imagenette':
 
@@ -147,6 +146,7 @@ elif args.dataset == 'imagenette':
     epochs = 100
     milestones = torch.tensor([40, 80])
     learning_rate = 0.1
+    batch_size = 256
 
 elif args.dataset == 'ember':
 
@@ -157,6 +157,7 @@ elif args.dataset == 'ember':
     epochs = 10
     learning_rate = 0.1
     milestones = torch.tensor([])
+    batch_size = 512
 
 else:
 
@@ -182,14 +183,12 @@ if args.dataset != 'ember':
     poisoned_set = tools.IMG_Dataset(data_dir=poisoned_set_img_dir,
                                      label_path=poisoned_set_label_path, transforms=data_transform if args.no_aug else data_transform_aug)
 else:
-    # poisoned_train_set/ember/unconstrained
-
     poison_set_dir = os.path.join('poisoned_train_set', 'ember', args.ember_options)
     poison_indices_path = os.path.join(poison_set_dir, 'poison_indices')
 
-    stats_path = os.path.join('data', 'ember', 'stats')
-    poisoned_set = tools.EMBER_Dataset( x_path=os.path.join(poison_set_dir, 'watermarked_X.npy'), y_path=os.path.join(poison_set_dir, 'watermarked_y.npy') ,
-                                        stats_path = stats_path)
+    #stats_path = os.path.join('data', 'ember', 'stats')
+    poisoned_set = tools.EMBER_Dataset( x_path=os.path.join(poison_set_dir, 'watermarked_X.npy'),
+                                        y_path=os.path.join(poison_set_dir, 'watermarked_y.npy'))
     print('dataset : %s' % poison_set_dir)
 
 
@@ -220,12 +219,14 @@ if args.dataset != 'ember':
                                                        trigger_name=args.trigger, args=args)
 
 else:
+    normalizer = poisoned_set.normal
 
     test_set_dir = os.path.join('clean_set', args.dataset, 'test_split')
-    stats_path = os.path.join('data', 'ember', 'stats')
+
     test_set = tools.EMBER_Dataset(x_path=os.path.join(test_set_dir, 'X.npy'),
-                                   y_path=os.path.join(test_set_dir, 'Y.npy') ,
-                                        stats_path = stats_path)
+                                   y_path=os.path.join(test_set_dir, 'Y.npy'),
+                                   normalizer = normalizer)
+
     test_set_loader = torch.utils.data.DataLoader(
         test_set,
         batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
@@ -233,7 +234,7 @@ else:
 
     backdoor_test_set_dir = os.path.join('poisoned_train_set', 'ember', args.ember_options)
     backdoor_test_set = tools.EMBER_Dataset(x_path=os.path.join(poison_set_dir, 'watermarked_X_test.npy'),
-                                       y_path=None, stats_path=stats_path)
+                                       y_path=None, normalizer = normalizer)
     backdoor_test_set_loader = torch.utils.data.DataLoader(
         backdoor_test_set,
         batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)

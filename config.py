@@ -159,35 +159,37 @@ def get_params(args):
     params = {
         'data_transform' : data_transform_normalize,
         'data_transform_aug' : data_transform_aug,
-        'distillation_ratio' : [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
-        'momentums' : [0.5, 0.5, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],
-        'lambs' : [25, 25, 50, 50, 50, 50, 25, 10], # 5 is ok
-        'lrs' : [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
-        'batch_factors' : [2, 2, 8, 8, 8, 8, 2, 2],
+        ####################################################################
+        #'distillation_ratio': [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
+        #'momentums': [0.5, 0.5, 0.5, 0.7, 0.7, 0.7, 0.7, 0.7],
+        #'lambs': [20, 40, 60, 60, 60, 60, 40, 10],
+        #'lrs': [0.001, 0.001, 0.003, 0.003, 0.003, 0.003, 0.003, 0.005],
+        #'batch_factors': [2, 2, 2, 2, 2, 2, 2, 2],
+        ####################################################################
+
+
+        #'distillation_ratio': [1/2, 1/5, 1/25, 1/50],
+        #'momentums': [0.5, 0.5, 0.5, 0.7, 0.7],
+        #'lambs': [20, 40, 60, 30, 30],
+        #'lrs': [0.001, 0.001, 0.003, 0.005, 0.005],
+        #'batch_factors': [2, 2, 2, 8, 4],
+
+        'distillation_ratio': [1/2, 1/5, 1/25, 1/50],
+        'momentums': [0.5, 0.5, 0.5, 0.7, 0.7], # 0.5, 0.7
+        'lambs': [20, 40, 60, 30, 20], # 30, 15
+        'lrs': [0.001, 0.001, 0.003, 0.005, 0.01],
+        'batch_factors': [2, 2, 2, 4, 5], # 4,4
+
         'weight_decay' : 1e-4,
         'num_classes' : num_classes,
-        'batch_size' : 32, # best 32
-        'pretrain_epochs' : 20,
+        'batch_size' : 32,
+        'pretrain_epochs' : 100,
         'median_sample_rate': 0.1,
         'base_arch' :  arch[args.dataset],
         'arch' :  arch[args.dataset],
         'kwargs' : {'num_workers': 4, 'pin_memory': True},
         'inspection_set_dir': supervisor.get_poison_set_dir(args)
     }
-
-    """
-    'distillation_ratio' : [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
-        'momentums' : [0.5, 0.5, 0.5, 0.6, 0.6, 0.6, 0.7, 0.7],
-        'lambs' : [25, 25, 25, 50, 50, 50, 25, 5],
-        'lrs' : [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
-        'batch_factors' : [2, 2, 2, 8, 8, 8, 2, 1],
-    #########################################################################
-    'distillation_ratio' : [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
-        'momentums' : [0.5, 0.5, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],
-        'lambs' : [25, 25, 50, 50, 50, 50, 25, 10],
-        'lrs' : [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
-        'batch_factors' : [2, 2, 8, 8, 8, 8, 2, 1],
-    """
 
 
     return params
@@ -211,7 +213,11 @@ def get_dataset(inspection_set_dir, data_transform, args, num_classes = 10):
                                   label_path=clean_label_path, transforms=data_transform,
                                   num_classes=num_classes, shift=True)
 
-    return inspection_set, clean_set
+    clean_set_random = tools.IMG_Dataset(data_dir=clean_set_img_dir,
+                                  label_path=clean_label_path, transforms=data_transform,
+                                  num_classes=num_classes, random_labels=True)
+
+    return inspection_set, clean_set, clean_set_random
 
 
 def get_packet_for_debug(poison_set_dir, data_transform, batch_size, args):

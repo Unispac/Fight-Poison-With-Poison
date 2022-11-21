@@ -14,7 +14,7 @@ from utils import supervisor
 
 
 class IMG_Dataset(Dataset):
-    def __init__(self, data_dir, label_path, transforms = None, num_classes = 10, shift = False):
+    def __init__(self, data_dir, label_path, transforms = None, num_classes = 10, shift = False, random_labels = False):
         """
         Args:
             data_dir: directory of the data
@@ -27,6 +27,7 @@ class IMG_Dataset(Dataset):
 
         self.num_classes = num_classes
         self.shift = shift
+        self.random_labels = random_labels
 
     def __len__(self):
         return len(self.gt)
@@ -37,21 +38,37 @@ class IMG_Dataset(Dataset):
         if self.transforms is not None:
             img = self.transforms(img)
 
-        label = self.gt[idx]
-        if self.shift:
-            label = (label + 1) % self.num_classes
+        if self.random_labels:
+            label = torch.randint(self.num_classes,(1,))[0]
+        else:
+            label = self.gt[idx]
+            if self.shift:
+                label = (label + 1) % self.num_classes
+
         return img, label
 
 
 class EMBER_Dataset(Dataset):
-    def __init__(self, x_path, y_path, stats_path):
+    def __init__(self, x_path, y_path, normalizer = None, inverse=False):
         """
         Args:
             data_dir: directory of the data
             label_path: path to data labels
             transforms: image transformation to be applied
         """
+
+        self.inverse = inverse
+
         self.x = np.load(x_path)
+
+        if normalizer is None:
+            from sklearn.preprocessing import StandardScaler
+            self.normal = StandardScaler()
+            self.normal.fit(self.x)
+        else:
+            self.normal = normalizer
+
+        self.x = self.normal.transform(self.x)
         self.x = torch.FloatTensor(self.x)
 
         if y_path is not None:
@@ -59,11 +76,6 @@ class EMBER_Dataset(Dataset):
             self.y = torch.FloatTensor(self.y)
         else:
             self.y = None
-
-        #stats = torch.load(stats_path)
-        #mean = stats['mean']
-        #std = stats['std'] + 1e-2
-        #self.x = (self.x - mean)/std
 
     def __len__(self):
         return self.x.shape[0]
@@ -74,10 +86,50 @@ class EMBER_Dataset(Dataset):
 
         if self.y is not None:
             label = self.y[idx]
+            if self.inverse:
+                label = (label+1) if label == 0 else (label-1)
             return x, label
         else:
             return x
 
+
+
+class EMBER_Dataset_norm(Dataset):
+    def __init__(self, x_path, y_path, sts, inverse=False):
+        """
+        Args:
+            data_dir: directory of the data
+            label_path: path to data labels
+            transforms: image transformation to be applied
+        """
+
+        self.inverse = inverse
+        self.x = np.load(x_path)
+
+        self.x = (self.x - sts[0])/sts[1]
+
+        self.x = torch.FloatTensor(self.x)
+
+        if y_path is not None:
+            self.y = np.load(y_path)
+            self.y = torch.FloatTensor(self.y)
+        else:
+            self.y = None
+
+    def __len__(self):
+        return self.x.shape[0]
+
+    def __getitem__(self, idx):
+        idx = int(idx)
+        x = self.x[idx].clone()
+
+        if self.y is not None:
+            label = self.y[idx]
+            if self.inverse:
+                label = (label+1) if label == 0 else (label-1)
+            return x, label
+        else:
+            return x
 
 
 def test(model, test_loader, poison_test = False, poison_transform=None, num_classes=10, source_classes=None):
