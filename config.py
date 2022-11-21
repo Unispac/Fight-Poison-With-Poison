@@ -36,6 +36,7 @@ trigger_default = {
     'WaNet': 'none',
     'dynamic' : 'none',
     'ISSBA': 'none',
+    'SleeperAgent': 'none',
     'none' : 'none',
 }
 

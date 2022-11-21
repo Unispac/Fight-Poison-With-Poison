@@ -137,7 +137,7 @@ poison_transform = supervisor.get_poison_transform(poison_type=args.poison_type,
                                                    alpha=args.alpha if args.test_alpha is None else args.test_alpha,
                                                    trigger_name=args.trigger, args=args)
 
-if args.poison_type == 'TaCT':
+if args.poison_type == 'TaCT' or args.poison_type == 'SleeperAgent':
     source_classes = [config.source_class]
 else:
     source_classes = None

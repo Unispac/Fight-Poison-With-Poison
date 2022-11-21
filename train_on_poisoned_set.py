@@ -1,5 +1,6 @@
 import argparse
 import os, sys
+import time
 from tqdm import tqdm
 from utils import default_args
 
@@ -163,7 +164,7 @@ else:
     raise NotImplementedError('<To Be Implemented> Dataset = %s' % args.dataset)
 
 
-kwargs = {'num_workers': 2, 'pin_memory': True}
+kwargs = {'num_workers': 4, 'pin_memory': True}
 
 
 
@@ -269,12 +270,14 @@ else:
 optimizer = torch.optim.SGD(model.parameters(), learning_rate, momentum=momentum, weight_decay=weight_decay)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones)
 
-if args.poison_type == 'TaCT':
+if args.poison_type == 'TaCT' or args.poison_type == 'SleeperAgent':
     source_classes = [config.source_class]
 else:
     source_classes = None
 
 for epoch in range(1, epochs+1):  # train backdoored base model
+    start_time = time.perf_counter()
+    
     # Train
     model.train()
     preds = []
@@ -288,20 +291,24 @@ for epoch in range(1, epochs+1):  # train backdoored base model
         loss.backward()
         optimizer.step()
 
-    print('\n<Backdoor Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}'.format(epoch, loss.item(), optimizer.param_groups[0]['lr']))
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print('<Backdoor Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, time: {:.2f}s'.format(epoch, loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
     scheduler.step()
 
     # Test
+    if epoch % 20 == 0:
+        if args.dataset != 'ember':
+            tools.test(model=model, test_loader=test_set_loader, poison_test=True,
+                    poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes)
+            torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
+        else:
+            tools.test_ember(model=model, test_loader=test_set_loader,
+                            backdoor_test_loader=backdoor_test_set_loader)
+            torch.save(model.module.state_dict(), model_path)
 
-    if args.dataset != 'ember':
-        tools.test(model=model, test_loader=test_set_loader, poison_test=True,
-                   poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes)
-        torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
-    else:
-        tools.test_ember(model=model, test_loader=test_set_loader,
-                         backdoor_test_loader=backdoor_test_set_loader)
-        torch.save(model.module.state_dict(), model_path)
-
+    print("")
+    
 if args.dataset != 'ember':
     torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
 else:
