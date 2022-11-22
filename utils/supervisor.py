@@ -157,12 +157,8 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
 
     if poison_type in ['badnet', 'blend', 'clean_label', 'refool',
                        'adaptive', 'adaptive_blend', 'adaptive_patch',
-<<<<<<< HEAD
-                       'SIG', 'TaCT', 'WaNet', 'sleeper_agent', 'none',
+                       'SIG', 'TaCT', 'WaNet', 'SleeperAgent', 'none',
                        'badnet_all_to_all']:
-=======
-                       'SIG', 'TaCT', 'WaNet', 'SleeperAgent', 'none']:
->>>>>>> 5d6c42783ba12851647f5de6086b4996fa616773
 
         if trigger_transform is None:
             trigger_transform = transforms.Compose([

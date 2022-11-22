@@ -135,11 +135,11 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_random, p
         elif confusion_iter < 4:
             pretrain_epochs = 20
             pretrain_lr = 0.01
-            distillation_iters = 6000
+            distillation_iters = 4000
         else:
             pretrain_epochs = 20
             pretrain_lr = 0.01 # lr=0.001 for round 3,4
-            distillation_iters = 6000
+            distillation_iters = 4000
 
         lr = lrs[confusion_iter]
 
