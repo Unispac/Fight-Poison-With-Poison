@@ -37,6 +37,7 @@ trigger_default = {
     'WaNet': 'none',
     'dynamic' : 'none',
     'ISSBA': 'none',
+    'SleeperAgent': 'none',
     'none' : 'none',
     'badnet_all_to_all' : 'badnet_patch.png',
 }

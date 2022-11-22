@@ -157,8 +157,12 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
 
     if poison_type in ['badnet', 'blend', 'clean_label', 'refool',
                        'adaptive', 'adaptive_blend', 'adaptive_patch',
+<<<<<<< HEAD
                        'SIG', 'TaCT', 'WaNet', 'sleeper_agent', 'none',
                        'badnet_all_to_all']:
+=======
+                       'SIG', 'TaCT', 'WaNet', 'SleeperAgent', 'none']:
+>>>>>>> 5d6c42783ba12851647f5de6086b4996fa616773
 
         if trigger_transform is None:
             trigger_transform = transforms.Compose([
@@ -232,7 +236,11 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
             from poison_tool_box import TaCT
             poison_transform = TaCT.poison_transform(img_size=img_size, trigger=trigger, mask = trigger_mask,
                                                      target_class=target_class)
-
+        
+        elif poison_type == 'SleeperAgent':
+            from poison_tool_box import SleeperAgent
+            poison_transform = SleeperAgent.poison_transform(random_patch=False, img_size=img_size, target_class=target_class, denormalizer=denormalizer, normalizer=normalizer)
+        
         else: # 'none'
             from poison_tool_box import none
             poison_transform = none.poison_transform()

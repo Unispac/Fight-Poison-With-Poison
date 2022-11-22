@@ -184,9 +184,14 @@ if not os.path.exists(poison_set_img_dir):
 
 
 if args.poison_type in ['badnet', 'blend', 'clean_label', 'refool',
+<<<<<<< HEAD
                         'adaptive', 'adaptive_blend', 'adaptive_patch',
                         'SIG', 'TaCT', 'WaNet', 'sleeper_agent', 'none',
                         'badnet_all_to_all']:
+=======
+                        'adaptive', 'adaptive_blend', 'adaptive_patch', 'SleeperAgent',
+                        'SIG', 'TaCT', 'WaNet', 'none', 'universal']:
+>>>>>>> 5d6c42783ba12851647f5de6086b4996fa616773
 
     trigger_name = args.trigger
     trigger_path = os.path.join(config.triggers_dir, trigger_name)
@@ -324,6 +329,37 @@ if args.poison_type in ['badnet', 'blend', 'clean_label', 'refool',
                                                         trigger_mark = trigger, trigger_mask=trigger_mask,
                                                         path=poison_set_img_dir, target_class=config.target_class[args.dataset])
 
+    elif args.poison_type == 'SleeperAgent':
+        from poison_tool_box import SleeperAgent
+        
+        if args.dataset == 'cifar10':
+            normalizer = transforms.Compose([
+                transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
+            ])
+
+            denormalizer = transforms.Compose([
+                transforms.Normalize([-0.4914 / 0.247, -0.4822 / 0.243, -0.4465 / 0.261], [1 / 0.247, 1 / 0.243, 1 / 0.261])
+            ])
+            
+            data_transform = transforms.Compose([
+                transforms.Resize((32, 32)),
+                transforms.ToTensor(),
+                # transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]),
+            ])
+            
+            trainset = datasets.CIFAR10(os.path.join(data_dir, 'cifar10'), train=True,
+                                        download=True, transform=data_transform)
+            testset = datasets.CIFAR10(os.path.join(data_dir, 'cifar10'), train=False,
+                                       download=True, transform=data_transform)
+        else: raise(NotImplementedError)
+        poison_generator = SleeperAgent.poison_generator(img_size=img_size, model_arch=config.arch[args.dataset],
+                                                         random_patch=False,
+                                                         dataset=trainset, testset=testset,
+                                                         poison_rate=args.poison_rate, path=poison_set_img_dir,
+                                                         normalizer=normalizer, denormalizer=denormalizer,
+                                                         source_class=config.source_class,
+                                                         target_class=config.target_class[args.dataset])
+    
     else: # 'none'
         from poison_tool_box import none
         poison_generator = none.poison_generator(img_size=img_size, dataset=train_set,
