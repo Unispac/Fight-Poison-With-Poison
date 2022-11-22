@@ -28,6 +28,9 @@ args = parser.parse_args()
 tools.setup_seed(0)
 
 
+datasets.ImageNet
+
+
 
 """
 Get Data Set
@@ -61,6 +64,9 @@ elif args.dataset == 'imagenette':
 
     img_size = 224
     num_classes = 10
+
+elif args.dataset == 'imagenet':
+    pass
 
 elif args.dataset == 'ember':
 
@@ -131,7 +137,7 @@ if not os.path.exists(test_split_img_dir):
 
 
 
-if args.dataset != 'ember':
+if args.dataset != 'ember' and args.dataset != 'imagenet':
 
     # randomly sample from a clean test set to simulate the clean samples at hand
     num_img = len(clean_set)
@@ -176,6 +182,21 @@ if args.dataset != 'ember':
     label_path = os.path.join(test_split_dir, 'labels')
     torch.save(label_set, label_path)
     print('[Generate Test Set] Save %s' % label_path)
+
+elif args.dataset == 'imagenet':
+
+    # randomly sample from a clean test set to simulate the clean samples at hand
+    num_img = 50000
+    id_set = list(range(0, num_img))
+    random.shuffle(id_set)
+    clean_split_indices = id_set[:args.clean_budget]
+    test_indices = id_set[args.clean_budget:]
+
+    print('[Generate Clean Split Set] Save %s' % os.path.join(clean_split_dir, 'clean_split_indices'))
+    torch.save(clean_split_indices, os.path.join(clean_split_dir, 'clean_split_indices') )
+
+    print('[Generate Test Set] Save %s' % os.path.join(test_split_dir, 'test_indices'))
+    torch.save(test_indices, os.path.join(test_split_dir, 'test_indices'))
 
 else:
 

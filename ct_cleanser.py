@@ -122,6 +122,7 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_random, p
         print(nums_of_each_class)
         freq_of_each_class = nums_of_each_class / size_of_distilled_set
         freq_of_each_class = np.sqrt(freq_of_each_class + 0.001)
+        #freq_of_each_class[:] = 1
 
         if confusion_iter < 2: # lr=0.01 for round 0,1,2
             pretrain_epochs = 100
@@ -134,11 +135,11 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_random, p
         elif confusion_iter < 4:
             pretrain_epochs = 20
             pretrain_lr = 0.01
-            distillation_iters = 2000
+            distillation_iters = 6000
         else:
             pretrain_epochs = 20
             pretrain_lr = 0.01 # lr=0.001 for round 3,4
-            distillation_iters = 4000
+            distillation_iters = 6000
 
         lr = lrs[confusion_iter]
 
@@ -188,7 +189,7 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_random, p
 
 
 distilled_samples_indices, median_sample_indices, model = iterative_poison_distillation(inspection_set,
-                                                clean_set, clean_set_random, params, args, debug_packet, start_iter=0)
+                                                clean_set, clean_set_random, params, args, debug_packet, start_iter=3)
 
 """
 arch = params['arch']

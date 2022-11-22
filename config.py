@@ -12,6 +12,7 @@ target_class = {
     'cifar10' : 0,
     'gtsrb' : 2,
     'imagenette': 0,
+    'imagenet' : 0
 }
 
 # default target class (without loss of generality)
@@ -37,6 +38,7 @@ trigger_default = {
     'dynamic' : 'none',
     'ISSBA': 'none',
     'none' : 'none',
+    'badnet_all_to_all' : 'badnet_patch.png',
 }
 
 arch = {
@@ -45,6 +47,7 @@ arch = {
     'gtsrb' : resnet.ResNet18,
     'imagenette': resnet.ResNet18,
     'ember': ember_nn.EmberNN,
+    'imagenet' : resnet.ResNet18
     #'abl':  wresnet.WideResNet
 }
 
@@ -176,8 +179,8 @@ def get_params(args):
         'distillation_ratio': [1/2, 1/5, 1/25, 1/50],
         'momentums': [0.5, 0.5, 0.5, 0.7, 0.7], # 0.5, 0.7
         'lambs': [20, 40, 60, 30, 20], # 30, 15
-        'lrs': [0.001, 0.001, 0.003, 0.005, 0.01],
-        'batch_factors': [2, 2, 2, 4, 5], # 4,4
+        'lrs': [0.001, 0.001, 0.003, 0.005, 0.005],
+        'batch_factors': [2, 2, 2, 4, 4], # 4,5
 
         'weight_decay' : 1e-4,
         'num_classes' : num_classes,
@@ -186,7 +189,7 @@ def get_params(args):
         'median_sample_rate': 0.1,
         'base_arch' :  arch[args.dataset],
         'arch' :  arch[args.dataset],
-        'kwargs' : {'num_workers': 4, 'pin_memory': True},
+        'kwargs' : {'num_workers': 2, 'pin_memory': True},
         'inspection_set_dir': supervisor.get_poison_set_dir(args)
     }
 

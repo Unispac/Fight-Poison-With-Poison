@@ -1,0 +1,2 @@
+nohup python -u ct_cleanser_imagenet.py -poison_type badnet -poison_rate 0.01 -devices 0,1,2,3 -debug_info > logs/imagenet/badnet.out 2>&1 &
+nohup python -u ct_cleanser_imagenet.py -poison_type blend -poison_rate 0.01 -devices 4,5,6,7 -debug_info > logs/imagenet/blend.out 2>&1 &
