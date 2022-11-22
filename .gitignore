@@ -31,8 +31,8 @@ clean_set/imagenette/*
 logs/*
 !logs/.dummy
 
-cleansers_tool_box/spectre/output/*
-!cleansers_tool_box/spectre/output/.dummy
+other_cleansers/spectre/output/*
+!other_cleansers/spectre/output/.dummy
 
 other_defenses_tool_box/logs
 other_defenses_tool_box/results/*

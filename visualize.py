@@ -12,6 +12,7 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
 from sklearn import svm
+from utils import default_args
 
 class mean_diff_visualizer:
 
@@ -82,17 +83,17 @@ class spectral_visualizer:
 parser = argparse.ArgumentParser()
 parser.add_argument('-method', type=str, required=False, default='pca',
                     choices=['pca', 'tsne', 'oracle', 'mean_diff', 'SS'])
-parser.add_argument('-dataset', type=str, required=False, default=config.parser_default['dataset'],
-                    choices=config.parser_choices['dataset'])
+parser.add_argument('-dataset', type=str, required=False, default=default_args.parser_default['dataset'],
+                    choices=default_args.parser_choices['dataset'])
 parser.add_argument('-poison_type', type=str,  required=True,
-        choices=config.parser_choices['poison_type'])
+        choices=default_args.parser_choices['poison_type'])
 parser.add_argument('-poison_rate', type=float,  required=False,
-                    choices=config.parser_choices['poison_rate'],
-                    default=config.parser_default['poison_rate'])
+                    choices=default_args.parser_choices['poison_rate'],
+                    default=default_args.parser_default['poison_rate'])
 parser.add_argument('-cover_rate', type=float,  required=False,
-                    choices=config.parser_choices['cover_rate'],
-                    default=config.parser_default['cover_rate'])
-parser.add_argument('-alpha', type=float,  required=False, default=config.parser_default['alpha'])
+                    choices=default_args.parser_choices['cover_rate'],
+                    default=default_args.parser_default['cover_rate'])
+parser.add_argument('-alpha', type=float,  required=False, default=default_args.parser_default['alpha'])
 parser.add_argument('-test_alpha', type=float,  required=False, default=None)
 parser.add_argument('-trigger', type=str,  required=False,
                     default=None)
@@ -102,7 +103,7 @@ parser.add_argument('-model_path', required=False, default=None)
 parser.add_argument('-no_normalize', default=False, action='store_true')
 parser.add_argument('-devices', type=str, default='0')
 parser.add_argument('-target_class', type=int, default=-1)
-parser.add_argument('-seed', type=int, required=False, default=config.seed)
+parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
 
 args = parser.parse_args()
 

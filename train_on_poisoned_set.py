@@ -109,7 +109,7 @@ elif args.dataset == 'imagenette':
     ])
 
 elif args.dataset == 'ember':
-    print('[Non-image Dataset] Amber')
+    print('[Non-image Dataset] Ember')
 else:
     raise NotImplementedError('dataset %s not supported' % args.dataset)
 
@@ -124,7 +124,7 @@ if args.dataset == 'cifar10':
     epochs = 200
     milestones = torch.tensor([100, 150])
     learning_rate = 0.1
-    batch_size = 256
+    batch_size = 128
 
 elif args.dataset == 'gtsrb':
 
@@ -135,7 +135,7 @@ elif args.dataset == 'gtsrb':
     epochs = 100
     milestones = torch.tensor([40, 80])
     learning_rate = 0.1
-    batch_size = 256
+    batch_size = 128
 
 elif args.dataset == 'imagenette':
 
@@ -146,7 +146,7 @@ elif args.dataset == 'imagenette':
     epochs = 100
     milestones = torch.tensor([40, 80])
     learning_rate = 0.1
-    batch_size = 256
+    batch_size = 128
 
 elif args.dataset == 'ember':
 
@@ -294,7 +294,7 @@ for epoch in range(1, epochs+1):  # train backdoored base model
 
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
-    print('<Backdoor Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, time: {:.2f}s'.format(epoch, loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
+    print('<Backdoor Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, Time: {:.2f}s'.format(epoch, loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
     scheduler.step()
 
     # Test
