@@ -636,7 +636,8 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
 
 
 # restore from a certain iteration step
-def distill(args, params, inspection_set, n_iter, criterion_no_reduction, dataset_name = None, final_budget = None):
+def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
+            dataset_name = None, final_budget = None, class_wise = False):
 
     kwargs = params['kwargs']
     inspection_set_dir = params['inspection_set_dir']
@@ -692,6 +693,11 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
     loss_array = np.array(loss_array)
     sorted_indices = np.argsort(loss_array)
 
+    top_indices_each_class = [[] for _ in range(num_classes)]
+    for t in sorted_indices:
+        gt = gts[t]
+        top_indices_each_class[gt].append(t)
+
     """
         Distill samples with low loss values from the inspected set.
     """
@@ -707,17 +713,15 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
             distilled_samples_indices = head
 
 
-        class_dist = np.zeros(num_classes, dtype=int)
-        for i in distilled_samples_indices:
-            gt = gts[i]
-            class_dist[gt] += 1
-
-        top_indices_each_class = [[] for _ in range(num_classes)]
-        for t in sorted_indices:
-            gt = gts[t]
-            top_indices_each_class[gt].append(t)
 
         if True: #n_iter < num_confusion_iter - 1:
+
+            class_dist = np.zeros(num_classes, dtype=int)
+            for i in distilled_samples_indices:
+                gt = gts[i]
+                class_dist[gt] += 1
+
+
             for i in range(num_classes):
                 minimal_sample_num = len(top_indices_each_class[i]) // 50  # 2% of each class
                 print('class-%d, collected=%d, minimal_to_collect=%d' % (i, class_dist[i], minimal_sample_num) )
@@ -799,4 +803,7 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
                                                              fpr, num_samples - num_poison,
                                                              fpr / (num_samples - num_poison) if (num_samples-num_poison)!=0 else 0))
 
-    return distilled_samples_indices, median_sample_indices
+    if class_wise:
+        return distilled_samples_indices, median_sample_indices, top_indices_each_class
+    else:
+        return distilled_samples_indices, median_sample_indices

@@ -181,7 +181,7 @@ def get_params(args):
         'momentums': [0.5, 0.5, 0.5, 0.7, 0.7], # 0.5, 0.7
         'lambs': [20, 40, 60, 30, 20], # 30, 15
         'lrs': [0.001, 0.001, 0.003, 0.005, 0.005],
-        'batch_factors': [2, 2, 2, 4, 4], # 4,5
+        'batch_factors': [2, 2, 2, 2, 2], # 4,4
 
         'weight_decay' : 1e-4,
         'num_classes' : num_classes,
