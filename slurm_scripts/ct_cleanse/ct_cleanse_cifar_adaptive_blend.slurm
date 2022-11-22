@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=4        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem-per-cpu=4G         # memory per cpu-core (4G is default)
 #SBATCH --gres=gpu:2            # number of gpus per node
-#SBATCH --time=6:00:00          # total run time limit (HH:MM:SS)
+#SBATCH --time=8:00:00          # total run time limit (HH:MM:SS)
 #SBATCH --output=logs/cifar/ct_cleanse/adaptive_blend.out
 #SBATCH --error=logs/cifar/ct_cleanse/adaptive_blend.err
 

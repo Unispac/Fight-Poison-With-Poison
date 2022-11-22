@@ -11,7 +11,7 @@ import numpy as np
 from torchvision.utils import save_image
 import config
 from utils import supervisor
-
+from tqdm import tqdm
 
 class IMG_Dataset(Dataset):
     def __init__(self, data_dir, label_path, transforms = None, num_classes = 10, shift = False, random_labels = False):
@@ -43,7 +43,7 @@ class IMG_Dataset(Dataset):
         else:
             label = self.gt[idx]
             if self.shift:
-                label = (label + 1) % self.num_classes
+                label = (label + idx) % self.num_classes
 
         return img, label
 
@@ -132,7 +132,7 @@ class EMBER_Dataset_norm(Dataset):
             return x
 
 
-def test(model, test_loader, poison_test = False, poison_transform=None, num_classes=10, source_classes=None):
+def test(model, test_loader, poison_test = False, poison_transform=None, num_classes=10, source_classes=None, all_to_all = False):
 
     model.eval()
     clean_correct = 0
@@ -170,18 +170,28 @@ def test(model, test_loader, poison_test = False, poison_transform=None, num_cla
                 poison_output = model(data)
                 poison_pred = poison_output.argmax(dim=1, keepdim=True)
 
-                target_class = target[0].item()
-                for bid in range(this_batch_size):
-                    if clean_target[bid]!=target_class:
-                        if source_classes is None:
-                            num_non_target_class+=1
-                            if poison_pred[bid] == target_class:
-                                poison_correct+=1
-                        else: # for source-specific attack
-                            if clean_target[bid] in source_classes:
+
+                if not all_to_all:
+
+                    target_class = target[0].item()
+                    for bid in range(this_batch_size):
+                        if clean_target[bid]!=target_class:
+                            if source_classes is None:
                                 num_non_target_class+=1
                                 if poison_pred[bid] == target_class:
                                     poison_correct+=1
+                            else: # for source-specific attack
+                                if clean_target[bid] in source_classes:
+                                    num_non_target_class+=1
+                                    if poison_pred[bid] == target_class:
+                                        poison_correct+=1
+
+                else:
+
+                    for bid in range(this_batch_size):
+                        num_non_target_class += 1
+                        if poison_pred[bid] == target[bid]:
+                            poison_correct += 1
 
                 poison_acc += poison_pred.eq((clean_target.view_as(poison_pred))).sum().item()
 
@@ -197,6 +207,52 @@ def test(model, test_loader, poison_test = False, poison_transform=None, num_cla
     print('Class_Dist: ', class_dist)
     print("")
     return  clean_correct/tot
+
+
+
+def test_imagenet(model, test_loader, poison_transform=None):
+
+    model.eval()
+
+    clean_top1 = 0
+    clean_top5 = 0
+    adv_top1 = 0
+    adv_top5 = 0
+    tot = 0
+
+    with torch.no_grad():
+        for data, target in tqdm(test_loader):
+
+            data, target = data.cuda(), target.cuda()
+            clean_output = model(data)
+            _, clean_pred = torch.topk(clean_output, 5, dim=1)
+
+            this_batch_size = len(target)
+            for i in range(this_batch_size):
+                if clean_pred[i][0] == target[i]:
+                    clean_top1 += 1
+                if target[i] in clean_pred[i]:
+                    clean_top5 += 1
+
+            if poison_transform is not None:
+                adv_data, adv_target = poison_transform.transform(data, target)
+                adv_output = model(adv_data)
+                _, adv_pred = torch.topk(adv_output, 5, dim=1)
+                for i in range(this_batch_size):
+                    if adv_pred[i][0] == adv_target[i]:
+                        adv_top1 += 1
+                    if adv_target[i] in adv_pred[i]:
+                        adv_top5 += 1
+
+            tot += this_batch_size
+
+    print('<clean accuracy> top1: %d/%d = %f; top5: %d/%d = %f' % (clean_top1,tot,clean_top1/tot,
+                                                                   clean_top5,tot,clean_top5/tot))
+
+    if poison_transform is not None:
+        print('<asr> top1: %d/%d = %f; top5: %d/%d = %f' % (adv_top1, tot, adv_top1 / tot,
+                                                                       adv_top5, tot, adv_top5 / tot))
+
 
 
 def test_ember(model, test_loader, backdoor_test_loader):

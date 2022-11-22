@@ -12,20 +12,25 @@ def get_features(data_loader, model):
     label_list = []
     preds_list = []
     feats = []
+    gt_confidence = []
+
+    criterion_no_reduction = nn.CrossEntropyLoss(reduction='none')
 
     model.eval()
     with torch.no_grad():
         for i, (ins_data, ins_target) in enumerate(tqdm(data_loader)):
             ins_data = ins_data.cuda()
-            preds, x_features = model(ins_data, return_hidden=True)
-            preds = torch.argmax(preds, dim=1).cpu().numpy()
+            output, x_features = model(ins_data, return_hidden=True)
+            preds = torch.argmax(output, dim=1).cpu().numpy()
             this_batch_size = len(ins_target)
             for bid in range(this_batch_size):
+                gt = ins_target[bid].cpu().item()
                 feats.append(x_features[bid].cpu().numpy())
-                label_list.append(ins_target[bid].cpu().numpy())
+                label_list.append(gt)
                 preds_list.append(preds[bid])
+                gt_confidence.append(output[bid][gt].cpu().item())
 
-    return feats, label_list, preds_list
+    return feats, label_list, preds_list, gt_confidence
 
 
 # cluster_analysis_in_the_feature_space
@@ -126,7 +131,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
         batch_size=128, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
     model.eval()
-    feats_inspection, class_labels_inspection, preds_inspection = get_features(inspection_split_loader, model)
+    feats_inspection, class_labels_inspection, preds_inspection, gt_confidence_inspection = get_features(inspection_split_loader, model)
     feats_inspection = np.array(feats_inspection)
     class_labels_inspection = np.array(class_labels_inspection)
 
@@ -152,7 +157,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
             raise Exception('clean chunklet is too small for class %d' % i)
 
     # apply cleanser, if the likelihood of two-clusters-model is twice of the likelihood of single-cluster-model
-    threshold = 5.0
+    threshold = np.e
     suspicious_indices = []
     class_likelihood_ratio = []
 
@@ -188,7 +193,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
         isolated_indices_local = []
         labels = []
         for pt, i in enumerate(class_indices[target_class]):
-            if preds_inspection[i] == target_class:
+            if gt_confidence_inspection[i] > 0.5: #preds_inspection[i] == target_class:
                 isolated_indices_global.append(i)
                 isolated_indices_local.append(pt)
                 labels.append(1) # suspected as positive
@@ -209,7 +214,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
             mu[1] = projected_feats_isolated.mean(axis=0)
             covariance[1] = np.cov(projected_feats_isolated.T)
 
-            covariance += 0.01
+            covariance += 0.001
 
             # avoid singularity
 
@@ -243,7 +248,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
             print('[class-%d] class with maximal ratio %f!. Apply Cleanser!' % (target_class, max_ratio))
 
             for i in class_indices[target_class]:
-                if preds_inspection[i] == target_class:
+                if gt_confidence_inspection[i] > 0.6:
                     suspicious_indices.append(i)
 
         elif likelihood_ratio > threshold:
@@ -251,7 +256,8 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
                 target_class, likelihood_ratio, threshold))
 
             for i in class_indices[target_class]:
-                if preds_inspection[i] == target_class:
+                #if preds_inspection[i] == target_class:
+                if gt_confidence_inspection[i] > 0.6:
                     suspicious_indices.append(i)
 
         else:
@@ -447,6 +453,11 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
 def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epochs, distilled_set_loader, criterion,
              inspection_set_dir, confusion_iter, lr, load = True, dataset_name=None):
 
+
+    all_to_all = False
+    if args.poison_type == 'badnet_all_to_all':
+        all_to_all = True
+
     ######### Pretrain Base Model ##############
     model = arch(num_classes=num_classes)
 
@@ -462,7 +473,7 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
     for epoch in range(1, pretrain_epochs + 1):  # pretrain backdoored base model with the distilled set
         model.train()
 
-        for batch_idx, (data, target) in enumerate(distilled_set_loader):
+        for batch_idx, (data, target) in enumerate( tqdm(distilled_set_loader) ):
             optimizer.zero_grad()
             data, target = data.cuda(), target.cuda()  # train set batch
             output = model(data)
@@ -470,15 +481,18 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
             loss.backward()
             optimizer.step()
 
-        if epoch % 5 == 0:
+        if epoch % 10 == 0:
             print('<Round-{} : Pretrain> Train Epoch: {}/{} \tLoss: {:.6f}'.format(confusion_iter, epoch, pretrain_epochs, loss.item()))
             if args.debug_info:
                 model.eval()
 
-                if dataset_name != 'ember':
+                if dataset_name != 'ember' and dataset_name != 'imagenet':
                     tools.test(model=model, test_loader=debug_packet['test_set_loader'], poison_test=True,
                            poison_transform=debug_packet['poison_transform'], num_classes=num_classes,
-                           source_classes=debug_packet['source_classes'])
+                           source_classes=debug_packet['source_classes'], all_to_all = all_to_all)
+                elif dataset_name == 'imagenet':
+                    tools.test_imagenet(model=model, test_loader=debug_packet['test_set_loader'],
+                                        poison_transform=debug_packet['poison_transform'])
                 else:
                     tools.test_ember(model=model, test_loader=debug_packet['test_set_loader'],
                                      backdoor_test_loader=debug_packet['backdoor_test_set_loader'])
@@ -495,6 +509,10 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
                     num_classes, inspection_set_dir, weight_decay, criterion_no_reduction,
                     momentum, lamb, freq, lr, batch_factor, distillation_iters, dataset_name = None):
 
+    all_to_all = False
+    if args.poison_type == 'badnet_all_to_all':
+        all_to_all = True
+
     ######### Distillation Step ################
     model = arch(num_classes=num_classes)
     #print('load : ', os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (confusion_iter, args.seed)))
@@ -509,7 +527,7 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
     distilled_set_iters = iter(distilled_set_loader)
     clean_set_iters = iter(clean_set_loader)
 
-    for batch_idx in range(distillation_iters):
+    for batch_idx in tqdm(range(distillation_iters)):
         model.train()
 
         try:
@@ -599,10 +617,13 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
             if args.debug_info:
                 model.eval()
 
-                if dataset_name != 'ember':
+                if dataset_name != 'ember' and dataset_name != 'imagenet':
                     tools.test(model=model, test_loader=debug_packet['test_set_loader'], poison_test=True,
                            poison_transform=debug_packet['poison_transform'], num_classes=num_classes,
-                           source_classes=debug_packet['source_classes'])
+                           source_classes=debug_packet['source_classes'], all_to_all = all_to_all)
+                elif dataset_name == 'imagenet':
+                    tools.test_imagenet(model=model, test_loader=debug_packet['test_set_loader'],
+                                        poison_transform=debug_packet['poison_transform'])
                 else:
                     tools.test_ember(model=model, test_loader=debug_packet['test_set_loader'],
                                      backdoor_test_loader=debug_packet['backdoor_test_set_loader'])
@@ -615,7 +636,8 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
 
 
 # restore from a certain iteration step
-def distill(args, params, inspection_set, n_iter, criterion_no_reduction, dataset_name = None, final_budget = None):
+def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
+            dataset_name = None, final_budget = None, class_wise = False):
 
     kwargs = params['kwargs']
     inspection_set_dir = params['inspection_set_dir']
@@ -638,11 +660,12 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
     """
     loss_array = []
     correct_instances = []
+    gts = []
     model.eval()
     st = 0
     with torch.no_grad():
 
-        for data, target in inspection_set_loader:
+        for data, target in tqdm(inspection_set_loader):
             data, target = data.cuda(), target.cuda()
             output = model(data)
 
@@ -657,13 +680,23 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
 
             for i in range(this_batch_size):
                 loss_array.append(batch_loss[i].item())
-                if preds[i] == target[i]:
-                    correct_instances.append(st + i)
+                gts.append(int(target[i].item()))
+                if dataset_name != 'ember':
+                    if output[i][target[i]] > 0.6:
+                        correct_instances.append(st + i)
+                else:
+                    if (target[i] == 0 and output[i] < 0.4) or (target[i] == 1 and output[i] > 0.6):
+                        correct_instances.append(st + i)
 
             st += this_batch_size
 
     loss_array = np.array(loss_array)
     sorted_indices = np.argsort(loss_array)
+
+    top_indices_each_class = [[] for _ in range(num_classes)]
+    for t in sorted_indices:
+        gt = gts[t]
+        top_indices_each_class[gt].append(t)
 
     """
         Distill samples with low loss values from the inspected set.
@@ -679,22 +712,19 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
             head = list(head)
             distilled_samples_indices = head
 
-        class_dist = np.zeros(num_classes, dtype=int)
-        for t in distilled_samples_indices:
-            _, gt = inspection_set[t]
-            gt = int(gt.item())
-            class_dist[gt] += 1
-
-        top_indices_each_class = [[] for _ in range(num_classes)]
-        for t in sorted_indices:
-            _, gt = inspection_set[t]
-            gt = int(gt.item())
-            top_indices_each_class[gt].append(t)
 
 
-        if n_iter < num_confusion_iter - 2:
+        if True: #n_iter < num_confusion_iter - 1:
+
+            class_dist = np.zeros(num_classes, dtype=int)
+            for i in distilled_samples_indices:
+                gt = gts[i]
+                class_dist[gt] += 1
+
+
             for i in range(num_classes):
                 minimal_sample_num = len(top_indices_each_class[i]) // 50  # 2% of each class
+                print('class-%d, collected=%d, minimal_to_collect=%d' % (i, class_dist[i], minimal_sample_num) )
                 if class_dist[i] < minimal_sample_num:
                     for k in range(class_dist[i], minimal_sample_num):
                         distilled_samples_indices.append(top_indices_each_class[i][k])
@@ -713,8 +743,7 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
     median_sample_indices = []
     sorted_indices_each_class = [[] for _ in range(num_classes)]
     for temp_id in sorted_indices:
-        _, gt = inspection_set[temp_id]
-        gt = int(gt.item())
+        gt = gts[temp_id]
         sorted_indices_each_class[gt].append(temp_id)
 
     for i in range(num_classes):
@@ -728,6 +757,8 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
         Report statistics of the distillation results.
     """
     if args.debug_info:
+
+        print('num_correct : ', len(correct_instances))
 
         if args.poison_type == 'TaCT' or args.poison_type == 'adaptive_blend':
             cover_indices = torch.load(os.path.join(inspection_set_dir, 'cover_indices'))
@@ -772,4 +803,7 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction, datase
                                                              fpr, num_samples - num_poison,
                                                              fpr / (num_samples - num_poison) if (num_samples-num_poison)!=0 else 0))
 
-    return distilled_samples_indices, median_sample_indices
+    if class_wise:
+        return distilled_samples_indices, median_sample_indices, top_indices_each_class
+    else:
+        return distilled_samples_indices, median_sample_indices
