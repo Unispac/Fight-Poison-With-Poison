@@ -187,11 +187,11 @@ else:
     raise NotImplementedError('<To Be Implemented> Dataset = %s' % args.dataset)
 
 
-<<<<<<< HEAD
-kwargs = {'num_workers': 12, 'pin_memory': True}
-=======
-kwargs = {'num_workers': 4, 'pin_memory': True}
->>>>>>> 161def75438c2d157e518b50a287d107b92563d9
+if args.dataset == 'imagenet':
+    kwargs = {'num_workers': 12, 'pin_memory': True}
+else:
+    kwargs = {'num_workers': 4, 'pin_memory': True}
+
 
 
 
