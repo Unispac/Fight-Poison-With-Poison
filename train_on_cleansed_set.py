@@ -2,6 +2,12 @@ import argparse
 import os, sys
 from tqdm import tqdm
 from utils import default_args
+import config
+from torchvision import datasets, transforms
+from torch import nn
+import torch
+from utils import supervisor, tools
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-dataset', type=str, required=False,
@@ -27,19 +33,12 @@ parser.add_argument('-trigger', type=str, required=False,
 parser.add_argument('-no_aug', default=False, action='store_true')
 parser.add_argument('-no_normalize', default=False, action='store_true')
 parser.add_argument('-devices', type=str, default='0')
+parser.add_argument('-cleanser', type=str, choices=['SCAn','AC','SS', 'CT', 'SPECTRE', 'Strip'], default='CT')
 parser.add_argument('-log', default=False, action='store_true')
 parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
-
-import config
-from torchvision import datasets, transforms
-from torch import nn
-import torch
-from utils import supervisor, tools
-
-
 tools.setup_seed(args.seed)
 
 if args.log:
@@ -256,11 +255,12 @@ else:
 
 optimizer = torch.optim.SGD(model.parameters(), learning_rate, momentum=momentum, weight_decay=weight_decay)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones)
-
+from tqdm import tqdm
 for epoch in range(1,epochs+1):
+    start_time = time.perf_counter()
 
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
+    for data, target in tqdm(train_loader):
         optimizer.zero_grad()
         data, target = data.cuda(), target.cuda()  # train set batch
         output = model(data)
@@ -268,7 +268,10 @@ for epoch in range(1,epochs+1):
         loss.backward()
         optimizer.step()
     scheduler.step()
-    print('[Epoch]:%d, Loss:%f' % (epoch, loss.item()))
+    
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print('<Cleansed Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, Time: {:.2f}s'.format(epoch, loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
 
     # Test
     if args.dataset != 'ember':
@@ -282,7 +285,7 @@ for epoch in range(1,epochs+1):
                                  backdoor_test_loader=backdoor_test_set_loader)
             torch.save(model.module.state_dict(), model_path)
 
-if args.dataset != 'ember':`
+if args.dataset != 'ember':
     torch.save(model.module.state_dict(), supervisor.get_model_dir(args, cleanse=True))
 else:
     torch.save(model.module.state_dict(), model_path)

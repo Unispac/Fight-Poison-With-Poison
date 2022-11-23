@@ -120,7 +120,7 @@ elif args.dataset == 'imagenet':
     print('[ImageNet]')
 
 elif args.dataset == 'ember':
-    print('[Non-image Dataset] Amber')
+    print('[Non-image Dataset] Ember')
 else:
     raise NotImplementedError('dataset %s not supported' % args.dataset)
 
@@ -135,7 +135,7 @@ if args.dataset == 'cifar10':
     epochs = 200
     milestones = torch.tensor([100, 150])
     learning_rate = 0.1
-    batch_size = 256
+    batch_size = 128
 
 elif args.dataset == 'gtsrb':
 
@@ -146,7 +146,7 @@ elif args.dataset == 'gtsrb':
     epochs = 100
     milestones = torch.tensor([40, 80])
     learning_rate = 0.1
-    batch_size = 256
+    batch_size = 128
 
 elif args.dataset == 'imagenette':
 
@@ -157,7 +157,7 @@ elif args.dataset == 'imagenette':
     epochs = 100
     milestones = torch.tensor([40, 80])
     learning_rate = 0.1
-    batch_size = 256
+    batch_size = 128
 
 elif args.dataset == 'imagenet':
 
@@ -187,7 +187,11 @@ else:
     raise NotImplementedError('<To Be Implemented> Dataset = %s' % args.dataset)
 
 
+<<<<<<< HEAD
 kwargs = {'num_workers': 12, 'pin_memory': True}
+=======
+kwargs = {'num_workers': 4, 'pin_memory': True}
+>>>>>>> 161def75438c2d157e518b50a287d107b92563d9
 
 
 
@@ -363,7 +367,7 @@ for epoch in range(1, epochs+1):  # train backdoored base model
     preds = []
     labels = []
     for data, target in tqdm(poisoned_set_loader):
-
+        data, target = data.cuda(), target.cuda()
         optimizer.zero_grad(set_to_none=True)
 
         with autocast():
@@ -376,7 +380,7 @@ for epoch in range(1, epochs+1):  # train backdoored base model
 
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
-    print('<Backdoor Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, time: {:.2f}s'.format(epoch, loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
+    print('<Backdoor Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, Time: {:.2f}s'.format(epoch, loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
     scheduler.step()
 
     # Test
@@ -390,7 +394,6 @@ for epoch in range(1, epochs+1):  # train backdoored base model
                             backdoor_test_loader=backdoor_test_set_loader)
             torch.save(model.module.state_dict(), model_path)
 
-<<<<<<< HEAD
     if args.dataset != 'ember':
         if True: #epoch % 5 == 0:
             if args.dataset == 'imagenet':
@@ -406,11 +409,8 @@ for epoch in range(1, epochs+1):  # train backdoored base model
         tools.test_ember(model=model, test_loader=test_set_loader,
                              backdoor_test_loader=backdoor_test_set_loader)
         torch.save(model.module.state_dict(), model_path)
-
-=======
     print("")
-    
->>>>>>> 5d6c42783ba12851647f5de6086b4996fa616773
+
 if args.dataset != 'ember':
     torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
 else:
