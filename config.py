@@ -216,11 +216,11 @@ def get_dataset(inspection_set_dir, data_transform, args, num_classes = 10):
                                   label_path=clean_label_path, transforms=data_transform,
                                   num_classes=num_classes, shift=True)
 
-    clean_set_random = tools.IMG_Dataset(data_dir=clean_set_img_dir,
+    clean_set_no_shift = tools.IMG_Dataset(data_dir=clean_set_img_dir,
                                   label_path=clean_label_path, transforms=data_transform,
-                                  num_classes=num_classes, random_labels=True)
+                                  num_classes=num_classes)
 
-    return inspection_set, clean_set, clean_set_random
+    return inspection_set, clean_set, clean_set_no_shift
 
 
 def get_packet_for_debug(poison_set_dir, data_transform, batch_size, args):

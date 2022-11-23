@@ -187,12 +187,8 @@ else:
     raise NotImplementedError('<To Be Implemented> Dataset = %s' % args.dataset)
 
 
-<<<<<<< HEAD
 kwargs = {'num_workers': 12, 'pin_memory': True}
-=======
-kwargs = {'num_workers': 4, 'pin_memory': True}
 
->>>>>>> 5d6c42783ba12851647f5de6086b4996fa616773
 
 
 # Set Up Poisoned Set

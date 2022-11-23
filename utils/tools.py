@@ -43,7 +43,7 @@ class IMG_Dataset(Dataset):
         else:
             label = self.gt[idx]
             if self.shift:
-                label = (label + idx) % self.num_classes
+                label = (label + 1) % self.num_classes
 
         return img, label
 
