@@ -187,12 +187,8 @@ else:
     raise NotImplementedError('<To Be Implemented> Dataset = %s' % args.dataset)
 
 
-<<<<<<< HEAD
-kwargs = {'num_workers': 12, 'pin_memory': True}
-=======
 kwargs = {'num_workers': 4, 'pin_memory': True}
 
->>>>>>> 5d6c42783ba12851647f5de6086b4996fa616773
 
 
 # Set Up Poisoned Set
@@ -367,7 +363,7 @@ for epoch in range(1, epochs+1):  # train backdoored base model
     preds = []
     labels = []
     for data, target in tqdm(poisoned_set_loader):
-
+        data, target = data.cuda(), target.cuda()
         optimizer.zero_grad(set_to_none=True)
 
         with autocast():
@@ -394,7 +390,6 @@ for epoch in range(1, epochs+1):  # train backdoored base model
                             backdoor_test_loader=backdoor_test_set_loader)
             torch.save(model.module.state_dict(), model_path)
 
-<<<<<<< HEAD
     if args.dataset != 'ember':
         if True: #epoch % 5 == 0:
             if args.dataset == 'imagenet':
@@ -410,11 +405,8 @@ for epoch in range(1, epochs+1):  # train backdoored base model
         tools.test_ember(model=model, test_loader=test_set_loader,
                              backdoor_test_loader=backdoor_test_set_loader)
         torch.save(model.module.state_dict(), model_path)
-
-=======
     print("")
-    
->>>>>>> 5d6c42783ba12851647f5de6086b4996fa616773
+
 if args.dataset != 'ember':
     torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
 else:

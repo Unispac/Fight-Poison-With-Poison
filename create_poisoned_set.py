@@ -184,14 +184,9 @@ if not os.path.exists(poison_set_img_dir):
 
 
 if args.poison_type in ['badnet', 'blend', 'clean_label', 'refool',
-<<<<<<< HEAD
                         'adaptive', 'adaptive_blend', 'adaptive_patch',
-                        'SIG', 'TaCT', 'WaNet', 'sleeper_agent', 'none',
+                        'SIG', 'TaCT', 'WaNet', 'SleeperAgent', 'none',
                         'badnet_all_to_all']:
-=======
-                        'adaptive', 'adaptive_blend', 'adaptive_patch', 'SleeperAgent',
-                        'SIG', 'TaCT', 'WaNet', 'none', 'universal']:
->>>>>>> 5d6c42783ba12851647f5de6086b4996fa616773
 
     trigger_name = args.trigger
     trigger_path = os.path.join(config.triggers_dir, trigger_name)

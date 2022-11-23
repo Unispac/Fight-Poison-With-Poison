@@ -2,6 +2,12 @@ import argparse
 import os, sys
 from tqdm import tqdm
 from utils import default_args
+import config
+from torchvision import datasets, transforms
+from torch import nn
+import torch
+from utils import supervisor, tools
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-dataset', type=str, required=False,
@@ -27,19 +33,12 @@ parser.add_argument('-trigger', type=str, required=False,
 parser.add_argument('-no_aug', default=False, action='store_true')
 parser.add_argument('-no_normalize', default=False, action='store_true')
 parser.add_argument('-devices', type=str, default='0')
+parser.add_argument('-cleanser', type=str, choices=['SCAn','AC','SS', 'CT', 'SPECTRE', 'Strip'], default='CT')
 parser.add_argument('-log', default=False, action='store_true')
 parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
-
-import config
-from torchvision import datasets, transforms
-from torch import nn
-import torch
-from utils import supervisor, tools
-
-
 tools.setup_seed(args.seed)
 
 if args.log:
@@ -286,7 +285,7 @@ for epoch in range(1,epochs+1):
                                  backdoor_test_loader=backdoor_test_set_loader)
             torch.save(model.module.state_dict(), model_path)
 
-if args.dataset != 'ember':`
+if args.dataset != 'ember':
     torch.save(model.module.state_dict(), supervisor.get_model_dir(args, cleanse=True))
 else:
     torch.save(model.module.state_dict(), model_path)
