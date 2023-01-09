@@ -111,7 +111,7 @@ clean_set = tools.IMG_Dataset(data_dir=clean_set_img_dir,
                               label_path=clean_set_label_path, transforms=data_transform)
 
 
-
+num_samples = len(poisoned_set)
 
 
 model_list = []
@@ -123,10 +123,10 @@ if (hasattr(args, 'model_path') and args.model_path is not None) or (hasattr(arg
     alias_list.append('assigned')
 
 else:
-    args.no_aug = True
-    path = supervisor.get_model_dir(args)
-    model_list.append(path)
-    alias_list.append(supervisor.get_model_name(args))
+    #args.no_aug = True
+    #path = supervisor.get_model_dir(args)
+    #model_list.append(path)
+    #alias_list.append(supervisor.get_model_name(args))
 
     args.no_aug = False
     path = supervisor.get_model_dir(args)
@@ -156,7 +156,7 @@ for (vid, path) in enumerate(model_list):
     if args.poison_type != 'none':
         poison_indices = torch.load(os.path.join(poison_set_dir, 'poison_indices'))
     
-    if not os.path.exists(save_path):
+    if True: #not os.path.exists(save_path):
         suspicious_indices = []
         if args.cleanser == "SS":
 
@@ -200,9 +200,10 @@ for (vid, path) in enumerate(model_list):
     #                                                  oracle_knowledge_of_clean_samples_in_poisoned_set)    
         #                                                  oracle_knowledge_of_clean_samples_in_poisoned_set)    
         elif args.cleanser == 'SPECTRE':
+
             num_samples = len(poisoned_set)
             num_poison = int(args.poison_rate * num_samples)
-            base_path = 'other_cleansers/spectre/output' # where to save temp results
+            base_path = 'other_cleansers/spectre/output'    # where to save temp results
 
             # Save representations
             from other_cleansers.spectre.save_rep import SAVE_REP
@@ -212,6 +213,7 @@ for (vid, path) in enumerate(model_list):
             # Execute julia code
             import subprocess
             os.chdir('other_cleansers/spectre')
+
             procs = []
             for i in range(num_classes):
                 folder_path = 'output'
@@ -223,17 +225,21 @@ for (vid, path) in enumerate(model_list):
 
                 cmd = ['julia', '--project=.', 'run_filters.jl', name]
                 outfile = open(os.path.join(folder_path, 'log.txt'), "w")
-                # errfile = open('/dev/null', "a")
+                #errfile = open('/dev/null', "a")
                 errfile = open(os.path.join(folder_path, 'err.txt'), "w")
                 procs.append(subprocess.Popen(cmd, stdout=outfile, stderr=errfile))
-                # print("Running for class", i)
+                #print("Running for class", i)
+
             for p in procs:
                 p.wait()
             os.chdir('../../')
             
             # Load julia results
-            poison_set_dir, inspection_split_loader, poison_indices, cover_indices = tools.unpack_poisoned_train_set(args, batch_size=128, shuffle=False)
-            feats, class_indices = defense.get_features(inspection_split_loader, defense.model, defense.num_classes)
+            poison_set_dir, inspection_split_loader, poison_indices, cover_indices \
+                = tools.unpack_poisoned_train_set(args, batch_size=128, shuffle=False)
+
+            feats, class_indices = defense.get_features(inspection_split_loader,
+                                                        defense.model, defense.num_classes)
             suspicious_indices = []
             scores = []
             for i in range(num_classes):
@@ -249,8 +255,20 @@ for (vid, path) in enumerate(model_list):
                 suspicious_indices.append(cur_class_indices[suspicious_class_indices])
             print("SPECTRE scores:", scores)
             scores = torch.tensor(scores)
-            suspect_target_class = scores.argmax(dim=0) # class with the highest score is suspected as the target class
-            suspicious_indices = suspicious_indices[suspect_target_class]
+
+            threshold = torch.median(scores)
+            detected_indices = []
+            for i in range(num_classes):
+                class_score = scores[i]
+                print('[class-%d] spectre score = %f' % (i, class_score) )
+                if class_score > threshold:
+                    print('exceed threshold! cleanse')
+                    detected_indices += list(suspicious_indices[i])
+
+            detected_indices.sort()
+            suspicious_indices = detected_indices
+            #suspect_target_class = scores.argmax(dim=0) # class with the highest score is suspected as the target class
+            #suspicious_indices = suspicious_indices[suspect_target_class]
             # suspicious_indices = torch.cat(suspicious_indices, dim=0)
         elif args.cleanser == 'CT':
             from other_cleansers import CT_feature_inference
@@ -261,11 +279,24 @@ for (vid, path) in enumerate(model_list):
         else:
             raise NotImplementedError('Unimplemented Cleanser')
 
+
+        suspicious_indices = list(np.array(suspicious_indices, dtype=int))
+
+        #print(suspicious_indices)
+
+        remain_indices = list( set(list( range(num_samples) )) - set(suspicious_indices) )
+        remain_indices.sort()
+
+        #print('num_samples = %d, num_suspicious = %d, num_remain = %d' % (num_samples, len(suspicious_indices),
+        #                                                                  len(remain_indices)) )
+
+        """
         remain_indices = []
         for i in range(len(poisoned_set)):
             if i not in suspicious_indices:
                 remain_indices.append(i)
-        remain_indices.sort()
+        remain_indices.sort()"""
+
     else: # already exists, load from saved file
         print("Already cleansed!")
         remain_indices = torch.load(save_path)
@@ -320,7 +351,7 @@ for (vid, path) in enumerate(model_list):
                 best_remain_indices = remain_indices
                 best_path = path
 
-if not os.path.exists(save_path):
+if True: #not os.path.exists(save_path):
     torch.save(best_remain_indices, save_path)
     print('[Save] %s' % save_path)
     print('best base model : %s' % best_path)

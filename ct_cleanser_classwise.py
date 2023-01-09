@@ -90,27 +90,31 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_no_shift,
     inspection_set_dir = params['inspection_set_dir']
     num_classes = params['num_classes']
     weight_decay = params['weight_decay']
-    arch = params['arch']
+    arch = resnet.ResNet18
 
-    momentums =  [0.0, 0.0]  # 0.5, 0.7
-    lambs =  [30, 10]  # 30, 15
-    lrs = [0.005, 0.01]
-    batch_factor = [5, 5]
+    momentums =  [0.7, 0.7, 0.7]
+    lambs =  [5, 5, 5]  # 30, 15
+    lrs = [0.005, 0.005, 0.005]
+    batch_factor = [1, 1, 1]
+
+    print('num_classes : ', num_classes)
+
+    # lamb = 20, bf = 20
 
     clean_set_loader = torch.utils.data.DataLoader(
-        clean_set, batch_size=params['batch_size'],
+        clean_set, batch_size=32,
         shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
 
     distilled_set_loader = torch.utils.data.DataLoader(
         inspection_set,
-        batch_size=params['batch_size'], shuffle=True,
+        batch_size=128, shuffle=True,
         worker_init_fn=tools.worker_init, **kwargs)
 
     criterion_no_reduction = nn.CrossEntropyLoss(reduction='none')
     criterion = nn.CrossEntropyLoss()
 
     print('>>> pretrain')
-    #confusion_training_classwise.pretrain(args, debug_packet, arch, num_classes, weight_decay, 20,
+    #confusion_training_classwise.pretrain(args, debug_packet, arch, num_classes, weight_decay, 40,
     #                                    distilled_set_loader, criterion, inspection_set_dir, 0.01, load=False)
 
 
@@ -118,21 +122,28 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_no_shift,
     distilled_samples_indices, median_sample_indices = None, None
 
 
-    num_confusion_iter = 2
-    pretrain_epochs = 10
-    pretrain_lr = 0.1
-    distillation_iters = 1000
+    num_confusion_iter = 1
+    distillation_iters = 400
+
+
+    suspicious_indices = []
 
     for current_class in range(2, num_classes):
 
+        """
         top_indices_each_class = [[] for _ in range(num_classes)]
         num = len(inspection_set)
         for i in range(num):
             _, gt = inspection_set[i]
             gt = gt.item()
-            top_indices_each_class[gt].append(i)
+            top_indices_each_class[gt].append(i)"""
 
-        distilled_set = torch.utils.data.Subset(inspection_set, top_indices_each_class[current_class])
+        top_indices_each_class = confusion_training_classwise.distill(current_class, arch, args, params, inspection_set,
+                                       2, criterion_no_reduction, class_wise=True, debug=True)
+
+
+        budget = len(top_indices_each_class[current_class]) // 4
+        distilled_set = torch.utils.data.Subset(inspection_set, top_indices_each_class[current_class][:budget])
         class_size = len(distilled_set)
 
         for confusion_iter in range(num_confusion_iter):
@@ -143,18 +154,16 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_no_shift,
             lr = lrs[confusion_iter]
             freq_of_each_class = np.ones( (num_classes,) )
 
+            """
             distilled_set_loader = torch.utils.data.DataLoader(
                 torch.utils.data.ConcatDataset([distilled_set, clean_set]),
-                batch_size=params['batch_size'], shuffle=True,
-                worker_init_fn=tools.worker_init, **kwargs)
-
-            #confusion_training_classwise.pretrain(args, debug_packet, arch, num_classes, weight_decay, 10,
-            #                                  distilled_set_loader, criterion, inspection_set_dir, 0.01, load = True)
+                batch_size=64, shuffle=True,
+                worker_init_fn=tools.worker_init, **kwargs)"""
 
 
             distilled_set_loader = torch.utils.data.DataLoader(
                 distilled_set,
-                batch_size=params['batch_size'], shuffle=True,
+                batch_size=32, shuffle=True,
                 worker_init_fn=tools.worker_init, **kwargs)
 
             model = confusion_training_classwise.confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader,
@@ -165,16 +174,59 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_no_shift,
                                                        freq_of_each_class, lr, batch_factor[confusion_iter],
                                                        distillation_iters)
 
-            top_indices_each_class = confusion_training_classwise.distill(current_class, args, params, inspection_set,
+            ####################################################################################################
+
+            distilled_set_loader = torch.utils.data.DataLoader(
+                distilled_set,
+                batch_size=params['batch_size'], shuffle=False,
+                worker_init_fn=tools.worker_init, **kwargs)
+
+            """
+            model.train()
+            train_loss = 0
+            tot = 0
+            for data, target in distilled_set_loader:
+                data, target = data.cuda(), target.cuda()
+                output = model(data)
+                loss_vals = criterion_no_reduction(output, target)
+                train_loss += loss_vals.sum()
+                tot += len(target)
+            train_loss /= tot
+            print('training_loss = %f' % train_loss.item())
+
+            ####################################################################################################"""
+
+            distilled_set_loader = torch.utils.data.DataLoader(
+                distilled_set,
+                batch_size=params['batch_size'], shuffle=False,
+                worker_init_fn=tools.worker_init, **kwargs)
+
+            model.eval()
+            test_loss = 0
+            tot = 0
+            for data, target in distilled_set_loader:
+                data, target = data.cuda(), target.cuda()
+                output = model(data)
+                loss_vals = criterion_no_reduction(output, target)
+                test_loss += loss_vals.sum()
+                tot += len(target)
+            test_loss /= tot
+            print('test_loss = %f' % test_loss.item())
+
+            ####################################################################################################
+
+
+
+            top_indices_each_class = confusion_training_classwise.distill(current_class, arch, args, params, inspection_set,
                                        confusion_iter, criterion_no_reduction, class_wise=True)
 
 
-
             if confusion_iter == num_confusion_iter - 1:
+
                 distilled_set = torch.utils.data.Subset(inspection_set, top_indices_each_class[current_class])
                 likelihood_ratio, isolated_indices_local = \
                     confusion_training_classwise.identify_poison_samples_simplified(
-                        distilled_set, list(range(class_size//2, class_size)), model)
+                        distilled_set, model)
                 print('class-%d : likelihood_ratio = %f' % (current_class, likelihood_ratio) )
 
                 isolated_indices = []
@@ -182,24 +234,60 @@ def iterative_poison_distillation(inspection_set, clean_set, clean_set_no_shift,
                     isolated_indices.append(top_indices_each_class[current_class][i])
 
                 poison_indices = torch.load(os.path.join(inspection_set_dir, 'poison_indices'))
+
+                num_poison_within_class = 0
+                for i in poison_indices:
+                    _, gt = inspection_set[i]
+                    gt = int(gt.item())
+                    if gt == current_class:
+                        num_poison_within_class += 1
+
                 num_poison = len(poison_indices)
                 detected = 0
                 for pid in isolated_indices:
                     if pid in poison_indices: detected+=1
                 num_fp = len(isolated_indices) - detected
 
-                print('Recall = %d/%d = %f, FPR = %d/%d = %f' % (detected, num_poison, detected/num_poison,
+
+                recall = detected/num_poison_within_class if num_poison_within_class!=0 else 0
+
+                print('Recall = %d/%d = %f, FPR = %d/%d = %f' % (detected, num_poison_within_class, recall,
                                                                  num_fp, class_size, num_fp/class_size) )
+
+                suspicious_indices += list(isolated_indices)
 
             else:
                 num_to_extract = size_of_distilled_set // 2
                 distilled_set = torch.utils.data.Subset(inspection_set, top_indices_each_class[current_class][:num_to_extract])
 
 
+    return suspicious_indices
 
 
 
 
-distilled_samples_indices, median_sample_indices, model = iterative_poison_distillation(inspection_set,
+suspicious_indices = iterative_poison_distillation(inspection_set,
                                                 clean_set, clean_set_no_shift, params,
                                                 args, debug_packet, start_iter=0)
+
+
+
+if args.debug_info:
+    suspicious_indices.sort()
+    poison_indices = torch.load(os.path.join(params['inspection_set_dir'], 'poison_indices'))
+    num_samples = len(inspection_set)
+    num_poison = len(poison_indices)
+    num_collected = len(suspicious_indices)
+    pt = 0
+    recall = 0
+    for idx in suspicious_indices:
+        if pt >= num_poison:
+            break
+        while(idx > poison_indices[pt] and pt+1 < num_poison) : pt+=1
+        if pt < num_poison and poison_indices[pt] == idx:
+            recall += 1
+    fpr = num_collected - recall
+
+    print('recall = %d/%d = %f, fpr = %d/%d = %f' % (recall, num_poison, recall / num_poison if num_poison != 0 else 0,
+                                                     fpr, num_samples - num_poison,
+                                                     fpr / (num_samples - num_poison) if (num_samples - num_poison) != 0 else 0))

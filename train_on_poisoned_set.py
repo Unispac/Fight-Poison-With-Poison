@@ -132,8 +132,8 @@ if args.dataset == 'cifar10':
     arch = config.arch[args.dataset]
     momentum = 0.9
     weight_decay = 1e-4
-    epochs = 200
-    milestones = torch.tensor([100, 150])
+    epochs = 100
+    milestones = torch.tensor([50, 75])
     learning_rate = 0.1
     batch_size = 128
 
@@ -144,8 +144,8 @@ elif args.dataset == 'gtsrb':
     momentum = 0.9
     weight_decay = 1e-4
     epochs = 100
-    milestones = torch.tensor([40, 80])
-    learning_rate = 0.1
+    milestones = torch.tensor([30, 60])
+    learning_rate = 0.01
     batch_size = 128
 
 elif args.dataset == 'imagenette':

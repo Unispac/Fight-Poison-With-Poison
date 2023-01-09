@@ -13,109 +13,27 @@ def get_features(data_loader, model):
     preds_list = []
     feats = []
     gt_confidence = []
-
+    loss_vals = []
     criterion_no_reduction = nn.CrossEntropyLoss(reduction='none')
-
     model.eval()
     with torch.no_grad():
         for i, (ins_data, ins_target) in enumerate(tqdm(data_loader)):
-            ins_data = ins_data.cuda()
+            ins_data, ins_target = ins_data.cuda(), ins_target.cuda()
             output, x_features = model(ins_data, return_hidden=True)
+
+            loss = criterion_no_reduction(output, ins_target).cpu().numpy()
+
             preds = torch.argmax(output, dim=1).cpu().numpy()
+            prob = torch.softmax(output, dim=1).cpu().numpy()
             this_batch_size = len(ins_target)
             for bid in range(this_batch_size):
                 gt = ins_target[bid].cpu().item()
                 feats.append(x_features[bid].cpu().numpy())
                 label_list.append(gt)
                 preds_list.append(preds[bid])
-                gt_confidence.append(output[bid][gt].cpu().item())
-
-    return feats, label_list, preds_list, gt_confidence
-
-
-# cluster_analysis_in_the_feature_space
-def constrained_GMM(init, chunklets, X, C):
-
-    from scipy.stats import multivariate_normal
-    from scipy.special import softmax
-
-    # init_gmm = [init_pi, init_mu, init_sigma]
-    p = init[0].numpy()
-    mu = init[1].numpy()
-    covariance = init[2].numpy()
-
-    L = len(chunklets)  # number of chunklets
-    last_posterior = np.random.rand(L, C)
-    EPS = 1e-2
-    clean_chunklet_label = -1
-
-    labels = np.zeros(L)
-
-    for t in range(100):  # maximum iterations : 100
-
-        posterior = np.zeros((L, C))
-        mu_next = np.zeros_like(mu)
-        covariance_next = np.zeros_like(covariance)
-
-        p_next = np.zeros_like(p)
-        N = 0
-
-        for i in range(L):  # compute posterior of each chunklet
-            r = np.zeros(C)
-            for j in range(C):
-                r[j] = np.log(p[j]) + max(multivariate_normal.logpdf(x=chunklets[i], mean=mu[j],
-                                                                     cov=covariance[j], allow_singular=True).sum(),
-                                          np.log(1e-8) * len(chunklets[i]))
-            r = softmax(r)
-            posterior[i, :] = r[:]
-
-            p_next += r[:] * len(chunklets[i])
-            N += len(chunklets[i])
-
-        p_next /= N
-        for i in range(C):
-            p_next[i] = max(p_next[i], 1e-8)
-
-        for j in range(C):  # compute mu_next
-            Z = 0  # normalizer
-            for i in range(L):
-                Z += posterior[i, j] * len(chunklets[i])
-                mu_next[j] += (chunklets[i].sum(axis=0) * posterior[i, j])
-            mu_next[j] /= Z
-
-        for j in range(C):  # compute coriance_next
-            Z = 0  # normalizer
-            for i in range(L):
-                Z += posterior[i, j] * len(chunklets[i])
-                centered_chunck = chunklets[i] - mu_next[j]
-                covariance_next[j] += (centered_chunck.T @ centered_chunck) * posterior[i, j]
-            covariance_next[j] /= Z
-
-        p = p_next
-        mu = mu_next
-        covariance = covariance_next
-
-        clean_chunklet_label = np.argmax(posterior[-1, :])
-
-        if np.linalg.norm(last_posterior - posterior) < EPS: # early stop
-            break
-        last_posterior = posterior
-
-    # hard label prediction for X, with the fitted model
-    n = len(X)
-    posterior = np.zeros((n, C))
-    for i in range(n):  # compute posterior of each sample
-        r = np.zeros(C)
-        for j in range(C):
-            r[j] = np.log(p[j]) + multivariate_normal.logpdf(x=X[i:i + 1], mean=mu[j],
-                                                             cov=covariance[j], allow_singular=True).sum()
-        r = softmax(r)
-        posterior[i, :] = r[:]
-
-    labels = np.argmax(posterior, axis=1)
-
-    return p, mu, covariance, labels, clean_chunklet_label
-
+                gt_confidence.append(prob[bid][gt])
+                loss_vals.append(loss[bid])
+    return feats, label_list, preds_list, gt_confidence, loss_vals
 
 
 def identify_poison_samples_simplified(inspection_set, clean_indices, model, num_classes):
@@ -131,7 +49,9 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
         batch_size=128, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
     model.eval()
-    feats_inspection, class_labels_inspection, preds_inspection, gt_confidence_inspection = get_features(inspection_split_loader, model)
+    feats_inspection, class_labels_inspection, preds_inspection, \
+    gt_confidence_inspection, loss_vals = get_features(inspection_split_loader, model)
+
     feats_inspection = np.array(feats_inspection)
     class_labels_inspection = np.array(class_labels_inspection)
 
@@ -157,7 +77,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
             raise Exception('clean chunklet is too small for class %d' % i)
 
     # apply cleanser, if the likelihood of two-clusters-model is twice of the likelihood of single-cluster-model
-    threshold = np.e
+    threshold = 2
     suspicious_indices = []
     class_likelihood_ratio = []
 
@@ -186,37 +106,44 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
         # reduce dimensionality
         U, S, V = torch.pca_lowrank(temp_feats, q=2)
         projected_feats = torch.matmul(temp_feats, V[:, :2]).cpu()
-        projected_feats_clean = projected_feats[clean_chunklet_indices_within_class]
 
         # isolate samples via the confused inference model
         isolated_indices_global = []
         isolated_indices_local = []
+        other_indices_local = []
         labels = []
         for pt, i in enumerate(class_indices[target_class]):
-            if gt_confidence_inspection[i] > 0.5: #preds_inspection[i] == target_class:
+            if preds_inspection[i] == target_class:
                 isolated_indices_global.append(i)
                 isolated_indices_local.append(pt)
                 labels.append(1) # suspected as positive
             else:
+                other_indices_local.append(pt)
                 labels.append(0)
+
         projected_feats_isolated = projected_feats[isolated_indices_local]
+        projected_feats_other = projected_feats[other_indices_local]
+
+        print('========')
+        print('num_isolated:', projected_feats_isolated.shape)
+        print('num_other:', projected_feats_other.shape)
 
         num_isolated = projected_feats_isolated.shape[0]
 
         print('num_isolated : ', num_isolated)
 
-        if num_isolated >= 2:
+        if (num_isolated >= 2) and (num_isolated <= num_samples_within_class - 2):
 
             mu = np.zeros((2,2))
             covariance = np.zeros((2,2,2))
-            mu[0] = projected_feats_clean.mean(axis=0)
-            covariance[0] = np.cov(projected_feats_clean.T)
+
+            mu[0] = projected_feats_other.mean(axis=0)
+            covariance[0] = np.cov(projected_feats_other.T)
             mu[1] = projected_feats_isolated.mean(axis=0)
             covariance[1] = np.cov(projected_feats_isolated.T)
 
-            covariance += 0.001
-
             # avoid singularity
+            covariance += 0.001
 
             # likelihood ratio test
             single_cluster_likelihood = 0
@@ -228,7 +155,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
                 two_clusters_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[labels[i]],
                                                                       cov=covariance[labels[i]], allow_singular=True).sum()
 
-            likelihood_ratio = np.exp((two_clusters_likelihood - single_cluster_likelihood) / num_samples_within_class)
+            likelihood_ratio = np.exp( (two_clusters_likelihood - single_cluster_likelihood) / num_samples_within_class )
 
         else:
 
@@ -248,190 +175,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
             print('[class-%d] class with maximal ratio %f!. Apply Cleanser!' % (target_class, max_ratio))
 
             for i in class_indices[target_class]:
-                if gt_confidence_inspection[i] > 0.6:
-                    suspicious_indices.append(i)
-
-        elif likelihood_ratio > threshold:
-            print('[class-%d] likelihood_ratio = %f > threshold = %f. Apply Cleanser!' % (
-                target_class, likelihood_ratio, threshold))
-
-            for i in class_indices[target_class]:
-                #if preds_inspection[i] == target_class:
-                if gt_confidence_inspection[i] > 0.6:
-                    suspicious_indices.append(i)
-
-        else:
-            print('[class-%d] likelihood_ratio = %f <= threshold = %f. Pass!' % (
-                target_class, likelihood_ratio, threshold))
-
-    return suspicious_indices
-
-
-
-# use the confused model to identify backdoor poison samples
-def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
-
-
-    from scipy.stats import multivariate_normal
-
-    kwargs = {'num_workers': 4, 'pin_memory': True}
-    num_samples = len(inspection_set)
-
-    other_indices = list(set(range(len(inspection_set))) - set(clean_indices))
-    other_indices.sort()
-
-    # main dataset we aim to cleanse
-    inspection_split_loader = torch.utils.data.DataLoader(
-        inspection_set,
-        batch_size=128, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
-
-    feats_inspection, class_labels_inspection, preds_inspection = get_features(inspection_split_loader, model)
-    feats_inspection = np.array(feats_inspection)
-    class_labels_inspection = np.array(class_labels_inspection)
-
-    class_indices = [[] for _ in range(num_classes)]
-    class_indices_in_clean_chunklet = [[] for _ in range(num_classes)]
-
-    for i in range(num_samples):
-        gt = int(class_labels_inspection[i])
-        class_indices[gt].append(i)
-
-    for i in clean_indices:
-        gt = int(class_labels_inspection[i])
-        class_indices_in_clean_chunklet[gt].append(i)
-
-    for i in range(num_classes):
-        class_indices[i].sort()
-        class_indices_in_clean_chunklet[i].sort()
-
-        if len(class_indices[i]) < 2:
-            raise Exception('dataset is too small for class %d' % i)
-
-        if len(class_indices_in_clean_chunklet[i]) < 2:
-            raise Exception('clean chunklet is too small for class %d' % i)
-
-    # apply cleanser, if the likelihood of two-clusters-model is twice of the likelihood of single-cluster-model
-    threshold = 5.0
-    suspicious_indices = []
-
-    from sklearn.decomposition import PCA
-    from sklearn.mixture import GaussianMixture
-
-    class_likelihood_ratio = []
-
-    for target_class in range(num_classes):
-
-        num_samples_within_class = len(class_indices[target_class])
-
-        print('class-%d : ' % target_class, num_samples_within_class)
-
-        clean_chunklet_size = len(class_indices_in_clean_chunklet[target_class])
-
-        clean_chunklet_indices_within_class = []
-        pt = 0
-        for i in range(num_samples_within_class):
-
-            if pt == clean_chunklet_size:
-                break
-
-            if class_indices[target_class][i] < class_indices_in_clean_chunklet[target_class][pt]:
-                continue
-            else:
-                clean_chunklet_indices_within_class.append(i)
-                pt += 1
-
-        print('start_pca..')
-
-
-
-        temp_feats = torch.FloatTensor(
-            feats_inspection[class_indices[target_class]] ).cuda()
-
-        U, S, V = torch.pca_lowrank(temp_feats, q = 16)
-        temp_feats = torch.matmul(temp_feats, V[:, :16])
-
-        # whiten the data with approximated clean statistics
-        clean_feats = temp_feats[clean_chunklet_indices_within_class]
-        clean_covariance = torch.cov(clean_feats.T)
-        temp_feats -= clean_feats.mean(dim=0)
-        L, V = torch.linalg.eig(clean_covariance)
-        L, V = L.real, V.real
-        L = (L + 0.0001) ** (-1 / 2)
-        L = torch.diag(L)
-        normalizer = torch.matmul(V, torch.matmul(L, V.T))
-        temp_feats = torch.matmul(normalizer, temp_feats.T).T
-
-        # reduce dimensionality
-        U, S, V = torch.pca_lowrank(temp_feats, q = 2)
-        projected_feats = torch.matmul(temp_feats, V[:, :2]).cpu()
-        projected_feats_clean = projected_feats[clean_chunklet_indices_within_class]
-
-        # unconstrained gmm => we use it as the init state for the latter constrained gmm
-        init_mu = torch.zeros(2, 2)
-        init_sigma = torch.zeros((2, 2, 2))
-        init_pi = torch.zeros(2)
-
-        init_mu[0, :] = projected_feats_clean.mean(dim=0)
-        init_sigma[0, :] = torch.cov(projected_feats_clean.T)
-
-        dis_array = torch.norm(projected_feats - init_mu[0], dim=1)
-        _, ids = torch.topk(dis_array, num_samples_within_class // 10)
-
-        psudo_outliers = projected_feats[ids]
-        init_mu[1, :] = psudo_outliers.mean(dim=0)
-        init_sigma[1, :] = torch.cov(psudo_outliers.T)
-
-        init_pi[0] = 0.9
-        init_pi[1] = 0.1
-
-        init_gmm = [init_pi, init_mu, init_sigma]
-
-        chunklets = []
-        chunklets_ids_to_sample_ids = []
-        num_chunklets = 0
-
-        for i in range(num_samples_within_class):
-            if i not in clean_chunklet_indices_within_class:
-                chunklets.append(
-                    projected_feats[i:i + 1].numpy())  # unconstrained points : each single point forms a chunklet
-                chunklets_ids_to_sample_ids.append([i])
-                num_chunklets += 1
-
-        chunklets.append(
-            projected_feats_clean.numpy())  # constraint : the known clean set should be in the same cluster
-        chunklets_ids_to_sample_ids.append(clean_chunklet_indices_within_class)
-        num_chunklets += 1
-
-        p, mu, covariance, labels, clean_cluster = constrained_GMM(init=init_gmm, chunklets=chunklets,
-                                                                   X=projected_feats, C=2)
-
-        # likelihood ratio test
-        single_cluster_likelihood = 0
-        two_clusters_likelihood = 0
-        for i in range(num_samples_within_class):
-            single_cluster_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[clean_cluster],
-                                                                    cov=covariance[clean_cluster],
-                                                                    allow_singular=True).sum()
-            two_clusters_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[labels[i]],
-                                                                  cov=covariance[labels[i]], allow_singular=True).sum()
-
-        likelihood_ratio = np.exp((two_clusters_likelihood - single_cluster_likelihood) / num_samples_within_class)
-
-        class_likelihood_ratio.append(likelihood_ratio)
-
-        print('likelihood_ratio = ', likelihood_ratio)
-
-    max_ratio = np.array(class_likelihood_ratio).max()
-
-    for target_class in range(num_classes):
-        likelihood_ratio = class_likelihood_ratio[target_class]
-
-        if likelihood_ratio == max_ratio and likelihood_ratio > 1.5:  # a lower conservative threshold for maximum ratio
-
-            print('[class-%d] class with maximal ratio %f!. Apply Cleanser!' % (target_class, max_ratio))
-
-            for i in class_indices[target_class]:
-                if preds_inspection[i] == target_class:
+                if preds_inspection[i] == target_class: #gt_confidence_inspection[i] > 0.5:
                     suspicious_indices.append(i)
 
         elif likelihood_ratio > threshold:
@@ -440,13 +184,15 @@ def identify_poison_samples(inspection_set, clean_indices, model, num_classes):
 
             for i in class_indices[target_class]:
                 if preds_inspection[i] == target_class:
+                #if gt_confidence_inspection[i] > 0.5:
                     suspicious_indices.append(i)
 
         else:
             print('[class-%d] likelihood_ratio = %f <= threshold = %f. Pass!' % (
-            target_class, likelihood_ratio, threshold))
+                target_class, likelihood_ratio, threshold))
 
     return suspicious_indices
+
 
 
 # pretraining on the poisoned datast to learn a prior of the backdoor
@@ -459,12 +205,11 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
         all_to_all = True
 
     ######### Pretrain Base Model ##############
-    model = arch(num_classes=num_classes)
+    model = arch(num_classes = num_classes)
 
     if confusion_iter != 0 and load:
         ckpt_path = os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (confusion_iter-1, args.seed))
         model.load_state_dict( torch.load(ckpt_path) )
-
 
     model = nn.DataParallel(model)
     model = model.cuda()
@@ -505,7 +250,7 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
 
 
 # confusion training : joint training on the poisoned dataset and a randomly labeled small clean set (i.e. confusion set)
-def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
+def confusion_train(args, params, inspection_set, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
                     num_classes, inspection_set_dir, weight_decay, criterion_no_reduction,
                     momentum, lamb, freq, lr, batch_factor, distillation_iters, dataset_name = None):
 
@@ -513,22 +258,35 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
     if args.poison_type == 'badnet_all_to_all':
         all_to_all = True
 
+
+    base_model = arch(num_classes = num_classes)
+    base_model.load_state_dict(
+        torch.load(os.path.join(inspection_set_dir, 'full_base_aug_seed=%d.pt' % (args.seed)))
+    )
+    base_model = nn.DataParallel(base_model)
+    base_model = base_model.cuda()
+    base_model.eval()
+
+
     ######### Distillation Step ################
-    model = arch(num_classes=num_classes)
-    #print('load : ', os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (confusion_iter, args.seed)))
+
+    model = arch(num_classes = num_classes)
     model.load_state_dict(
-                torch.load(os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (confusion_iter, args.seed))))
+                torch.load(os.path.join(inspection_set_dir, 'base_%d_seed=%d.pt' % (confusion_iter, args.seed)))
+    )
     model = nn.DataParallel(model)
     model = model.cuda()
+
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
                                 momentum=momentum)
-
 
     distilled_set_iters = iter(distilled_set_loader)
     clean_set_iters = iter(clean_set_loader)
 
+
+    rounder = 0
+
     for batch_idx in tqdm(range(distillation_iters)):
-        model.train()
 
         try:
             data_shift, target_shift = next(clean_set_iters)
@@ -537,17 +295,19 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
             data_shift, target_shift = next(clean_set_iters)
         data_shift, target_shift = data_shift.cuda(), target_shift.cuda()
 
-
         if dataset_name != 'ember':
             target_clean = (target_shift + num_classes - 1) % num_classes
             s = len(target_clean)
-            target_confusion = torch.randint(high=num_classes, size=(s,)).cuda()
-            for i in range(s):
-                if target_confusion[i] == target_clean[i]:
-                    # make sure the confusion set is never correctly labeled
-                    target_confusion[i] = (target_confusion[i] + 1) % num_classes
+            with torch.no_grad():
+                preds = torch.argmax(base_model(data_shift), dim=1).detach()
+                if (rounder + batch_idx) % num_classes == 0:
+                    rounder += 1
+                next_target = (preds + rounder + batch_idx) % num_classes
+                target_confusion = next_target
         else:
            target_confusion = target_shift
+
+        model.train()
 
         if batch_idx % batch_factor == 0:
 
@@ -565,25 +325,9 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
             output_mix = model(data_mix)
             loss_mix = criterion_no_reduction(output_mix, target_mix)
 
-
             loss_inspection_batch_all = loss_mix[boundary:]
-            #loss_inspection_batch = loss_inspection_batch_all.mean()
-
             loss_confusion_batch_all = loss_mix[:boundary]
             loss_confusion_batch = loss_confusion_batch_all.mean()
-
-
-            """
-            confusion_batch_size = len(target_clean)
-            loss_confusion_batch = 0
-            normalizer = 0
-            for i in range(confusion_batch_size):
-                gt = target_clean[i].item()
-                loss_confusion_batch += (loss_confusion_batch_all[i] * freq[gt])
-                normalizer += freq[gt]
-            loss_confusion_batch = loss_confusion_batch / normalizer"""
-
-
             target_inspection_batch_all = target_mix[boundary:]
             inspection_batch_size = len(loss_inspection_batch_all)
             loss_inspection_batch = 0
@@ -594,7 +338,7 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
                 normalizer += (1 / freq[gt])
             loss_inspection_batch = loss_inspection_batch / normalizer
 
-            weighted_loss = (loss_confusion_batch * (lamb - 1) + loss_inspection_batch) / lamb
+            weighted_loss = (loss_confusion_batch * (lamb-1) + loss_inspection_batch) / lamb
 
             loss_confusion_batch = loss_confusion_batch.item()
             loss_inspection_batch = loss_inspection_batch.item()
@@ -607,9 +351,10 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
         weighted_loss.backward()
         optimizer.step()
 
-        if (batch_idx + 1) % 1000 == 0:
-            print('<Round-{} : Distillation Step> Batch_idx: {}, lr: {}, lamb : {}, moment : {}, Loss: {:.6f}'.format(
-                confusion_iter, batch_idx + 1, optimizer.param_groups[0]['lr'], lamb, momentum,
+        if (batch_idx + 1) % 500 == 0:
+
+            print('<Round-{} : Distillation Step> Batch_idx: {}, batch_factor: {}, lr: {}, lamb : {}, moment : {}, Loss: {:.6f}'.format(
+                confusion_iter, batch_idx + 1, batch_factor, optimizer.param_groups[0]['lr'], lamb, momentum,
                 weighted_loss.item()))
             print('inspection_batch_loss = %f, confusion_batch_loss = %f' %
                   (loss_inspection_batch, loss_confusion_batch))
@@ -637,7 +382,7 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
 
 # restore from a certain iteration step
 def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
-            dataset_name = None, final_budget = None, class_wise = False):
+            dataset_name = None, final_budget = None, class_wise = False, custom_arch=None):
 
     kwargs = params['kwargs']
     inspection_set_dir = params['inspection_set_dir']
@@ -647,18 +392,22 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
     distillation_ratio = params['distillation_ratio']
     num_confusion_iter = len(distillation_ratio) + 1
 
+    if custom_arch is not None:
+        arch = custom_arch
+
     model = arch(num_classes=num_classes)
     ckpt = torch.load(os.path.join(inspection_set_dir, 'confused_%d_seed=%d.pt' % (n_iter, args.seed)))
     model.load_state_dict(ckpt)
     model = nn.DataParallel(model)
     model = model.cuda()
-    inspection_set_loader = torch.utils.data.DataLoader(inspection_set, batch_size=params['batch_size'],
+    inspection_set_loader = torch.utils.data.DataLoader(inspection_set, batch_size=256,
                                                             shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
     """
         Collect loss values for inspected samples.
     """
     loss_array = []
+    confidence_array = []
     correct_instances = []
     gts = []
     model.eval()
@@ -674,24 +423,28 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
             else:
                 preds = (output >= 0.5).float()
 
+            prob = torch.softmax(output, dim=1).cpu().numpy()
+
             batch_loss = criterion_no_reduction(output, target)
 
             this_batch_size = len(target)
 
             for i in range(this_batch_size):
                 loss_array.append(batch_loss[i].item())
+                confidence_array.append(prob[i][target[i].item()])
                 gts.append(int(target[i].item()))
                 if dataset_name != 'ember':
-                    if output[i][target[i]] > 0.6:
+                    if preds[i] == target[i]:
                         correct_instances.append(st + i)
                 else:
-                    if (target[i] == 0 and output[i] < 0.4) or (target[i] == 1 and output[i] > 0.6):
+                    if preds[i] == target[i]:
                         correct_instances.append(st + i)
 
             st += this_batch_size
 
     loss_array = np.array(loss_array)
     sorted_indices = np.argsort(loss_array)
+
 
     top_indices_each_class = [[] for _ in range(num_classes)]
     for t in sorted_indices:
@@ -712,18 +465,18 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
             head = list(head)
             distilled_samples_indices = head
 
+        if n_iter < num_confusion_iter - 2: rate_factor = 50
+        else: rate_factor = 100
 
-
-        if True: #n_iter < num_confusion_iter - 1:
+        if True: #n_iter < num_confusion_iter - 2:
 
             class_dist = np.zeros(num_classes, dtype=int)
             for i in distilled_samples_indices:
                 gt = gts[i]
                 class_dist[gt] += 1
 
-
             for i in range(num_classes):
-                minimal_sample_num = len(top_indices_each_class[i]) // 50  # 2% of each class
+                minimal_sample_num = len(top_indices_each_class[i]) // rate_factor
                 print('class-%d, collected=%d, minimal_to_collect=%d' % (i, class_dist[i], minimal_sample_num) )
                 if class_dist[i] < minimal_sample_num:
                     for k in range(class_dist[i], minimal_sample_num):
@@ -739,12 +492,15 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
 
     distilled_samples_indices.sort()
 
+
     median_sample_rate = params['median_sample_rate']
     median_sample_indices = []
     sorted_indices_each_class = [[] for _ in range(num_classes)]
     for temp_id in sorted_indices:
         gt = gts[temp_id]
         sorted_indices_each_class[gt].append(temp_id)
+
+
 
     for i in range(num_classes):
         num_class_i = len(sorted_indices_each_class[i])
@@ -753,17 +509,20 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
         for temp_id in range(st, ed):
             median_sample_indices.append(sorted_indices_each_class[i][temp_id])
 
-    """
-        Report statistics of the distillation results.
+    """Report statistics of the distillation results...
     """
     if args.debug_info:
 
         print('num_correct : ', len(correct_instances))
 
-        if args.poison_type == 'TaCT' or args.poison_type == 'adaptive_blend':
+        if args.poison_type == 'TaCT' or args.poison_type == 'adaptive_blend' or args.poison_type == 'adaptive_patch':
             cover_indices = torch.load(os.path.join(inspection_set_dir, 'cover_indices'))
 
         poison_indices = torch.load(os.path.join(inspection_set_dir, 'poison_indices'))
+
+        #for pid in poison_indices:
+        #    print('poison confidence : ', confidence_array[pid])
+
 
         cnt = 0
         for s, cid in enumerate(head):  # enumerate the head part
@@ -776,14 +535,17 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
         poison_dist = []
 
         for temp_id in range(num_samples):
+
             if sorted_indices[temp_id] in poison_indices:
                 poison_dist.append(temp_id)
+
             if args.poison_type == 'TaCT' or args.poison_type == 'adaptive_blend':
                 if sorted_indices[temp_id] in cover_indices:
                     cover_dist.append(temp_id)
+
         print('poison distribution : ', poison_dist)
 
-        if args.poison_type == 'TaCT' or args.poison_type == 'adaptive_blend':
+        if args.poison_type == 'TaCT' or args.poison_type == 'adaptive_blend' or args.poison_type == 'adaptive_patch':
             print('cover distribution : ', cover_dist)
 
         num_poison = len(poison_indices)
@@ -807,3 +569,5 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
         return distilled_samples_indices, median_sample_indices, top_indices_each_class
     else:
         return distilled_samples_indices, median_sample_indices
+
+

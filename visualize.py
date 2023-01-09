@@ -1,84 +1,12 @@
 import random
-
 import numpy as np
-import torch
 import os
-from torchvision import transforms
 import argparse
-from torch import nn
-from utils import supervisor, tools
-import config
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
 from sklearn import svm
 from utils import default_args
-
-class mean_diff_visualizer:
-
-    def fit_transform(self, clean, poison):
-        clean_mean = clean.mean(dim=0)
-        poison_mean = poison.mean(dim=0)
-        mean_diff = poison_mean - clean_mean
-        print("Mean L2 distance between poison and clean:", torch.norm(mean_diff, p=2).item())
-
-        proj_clean_mean = torch.matmul(clean, mean_diff)
-        proj_poison_mean = torch.matmul(poison, mean_diff)
-
-        return proj_clean_mean, proj_poison_mean
-
-
-class oracle_visualizer:
-
-    def __init__(self):
-        self.clf = svm.LinearSVC()
-
-    def fit_transform( self, clean, poison ):
-
-        clean = clean.numpy()
-        num_clean = len(clean)
-
-        poison = poison.numpy()
-        num_poison = len(poison)
-
-        print(clean.shape, poison.shape)
-
-        X = np.concatenate( [clean, poison], axis=0)
-        y = []
-
-
-        for _ in range(num_clean):
-            y.append(0)
-        for _ in range(num_poison):
-            y.append(1)
-
-        self.clf.fit(X, y)
-
-        norm = np.linalg.norm(self.clf.coef_)
-        self.clf.coef_ = self.clf.coef_ / norm
-        self.clf.intercept_ = self.clf.intercept_ / norm
-
-        projection = self.clf.decision_function(X)
-
-        return projection[:num_clean], projection[num_clean:]
-
-class spectral_visualizer:
-
-    def fit_transform(self, clean, poison):
-        all_features = torch.cat((clean, poison), dim=0)
-        all_features -= all_features.mean(dim=0)
-        _, _, V = torch.svd(all_features, compute_uv=True, some=False)
-        vec = V[:, 0]  # the top right singular vector is the first column of V
-        vals = []
-        for j in range(all_features.shape[0]):
-            vals.append(torch.dot(all_features[j], vec).pow(2))
-        vals = torch.tensor(vals)
-        
-        print(vals.shape)
-        
-        return vals[:clean.shape[0]], vals[clean.shape[0]:]
-
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-method', type=str, required=False, default='pca',
@@ -107,26 +35,96 @@ parser.add_argument('-seed', type=int, required=False, default=default_args.seed
 
 args = parser.parse_args()
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
+from torchvision import transforms
+import torch
+import config
+from torch import nn
+from utils import supervisor, tools
+
+tools.setup_seed(args.seed)
+
 if args.target_class == -1:
     target_class = config.target_class[args.dataset]
 else:
     target_class = args.target_class
 
-
 if args.trigger is None:
     args.trigger = config.trigger_default[args.poison_type]
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
-tools.setup_seed(args.seed)
 
 batch_size = 128
 kwargs = {'num_workers': 4, 'pin_memory': True}
 
-# if args.method == 'tsne': raise NotImplementedError()
+
+class mean_diff_visualizer:
+
+    def fit_transform(self, clean, poison):
+        clean_mean = clean.mean(dim=0)
+        poison_mean = poison.mean(dim=0)
+        mean_diff = poison_mean - clean_mean
+        print("Mean L2 distance between poison and clean:", torch.norm(mean_diff, p=2).item())
+
+        proj_clean_mean = torch.matmul(clean, mean_diff)
+        proj_poison_mean = torch.matmul(poison, mean_diff)
+
+        return proj_clean_mean, proj_poison_mean
+
+
+class oracle_visualizer:
+
+    def __init__(self):
+        self.clf = svm.LinearSVC()
+
+    def fit_transform(self, clean, poison):
+
+        clean = clean.numpy()
+        num_clean = len(clean)
+
+        poison = poison.numpy()
+        num_poison = len(poison)
+
+        print(clean.shape, poison.shape)
+
+        X = np.concatenate([clean, poison], axis=0)
+        y = []
+
+        for _ in range(num_clean):
+            y.append(0)
+        for _ in range(num_poison):
+            y.append(1)
+
+        self.clf.fit(X, y)
+
+        norm = np.linalg.norm(self.clf.coef_)
+        self.clf.coef_ = self.clf.coef_ / norm
+        self.clf.intercept_ = self.clf.intercept_ / norm
+
+        projection = self.clf.decision_function(X)
+
+        return projection[:num_clean], projection[num_clean:]
+
+
+class spectral_visualizer:
+
+    def fit_transform(self, clean, poison):
+        all_features = torch.cat((clean, poison), dim=0)
+        all_features -= all_features.mean(dim=0)
+        _, _, V = torch.svd(all_features, compute_uv=True, some=False)
+        vec = V[:, 0]  # the top right singular vector is the first column of V
+        vals = []
+        for j in range(all_features.shape[0]):
+            vals.append(torch.dot(all_features[j], vec).pow(2))
+        vals = torch.tensor(vals)
+
+        print(vals.shape)
+
+        return vals[:clean.shape[0]], vals[clean.shape[0]:]
+
+
 
 if args.dataset == 'cifar10':
 
-    num_classes = 10
+    num_classes = 11
     if args.no_normalize:
         data_transform = transforms.Compose([
                 transforms.ToTensor(),
@@ -266,7 +264,7 @@ for vid, path in enumerate(model_list):
             features.append(feature.cpu().detach())
 
     targets = torch.cat(targets, dim=0)
-
+    targets = targets.cpu()
     features = torch.cat(features, dim=0)
     ids = torch.tensor(list(range(len(poisoned_set))))
 

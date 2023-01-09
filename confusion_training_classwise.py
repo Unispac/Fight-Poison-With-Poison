@@ -12,24 +12,30 @@ def get_features(data_loader, model):
     preds_list = []
     feats = []
     gt_confidence = []
+    loss_vals = []
     criterion_no_reduction = nn.CrossEntropyLoss(reduction='none')
     model.eval()
     with torch.no_grad():
         for i, (ins_data, ins_target) in enumerate(tqdm(data_loader)):
-            ins_data = ins_data.cuda()
+            ins_data, ins_target = ins_data.cuda(), ins_target.cuda()
             output, x_features = model(ins_data, return_hidden=True)
+
+            loss = criterion_no_reduction(output, ins_target).cpu().numpy()
+
             preds = torch.argmax(output, dim=1).cpu().numpy()
+            prob = torch.softmax(output, dim=1).cpu().numpy()
             this_batch_size = len(ins_target)
             for bid in range(this_batch_size):
                 gt = ins_target[bid].cpu().item()
                 feats.append(x_features[bid].cpu().numpy())
                 label_list.append(gt)
                 preds_list.append(preds[bid])
-                gt_confidence.append(output[bid][gt].cpu().item())
-    return feats, label_list, preds_list, gt_confidence
+                gt_confidence.append(prob[bid][gt])
+                loss_vals.append(loss[bid])
+    return feats, label_list, preds_list, gt_confidence, loss_vals
 
 
-def identify_poison_samples_simplified(inspection_set, clean_indices, model):
+def identify_poison_samples_simplified(inspection_set, model):
 
     from scipy.stats import multivariate_normal
 
@@ -42,7 +48,8 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model):
         batch_size=128, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
     model.eval()
-    feats_inspection, class_labels_inspection, preds_inspection, gt_confidence_inspection = get_features(inspection_split_loader, model)
+    feats_inspection, class_labels_inspection, \
+    preds_inspection, gt_confidence_inspection, loss_vals = get_features(inspection_split_loader, model)
     feats_inspection = np.array(feats_inspection)
     class_labels_inspection = np.array(class_labels_inspection)
     temp_feats = torch.FloatTensor(feats_inspection).cuda()
@@ -50,45 +57,59 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model):
     # reduce dimensionality
     U, S, V = torch.pca_lowrank(temp_feats, q=2)
     projected_feats = torch.matmul(temp_feats, V[:, :2]).cpu()
-    projected_feats_clean = projected_feats[clean_indices]
 
     # isolate samples via the confused inference model
 
     isolated_indices_local = []
+    other_indices_local = []
     labels = []
+
     for i in range(num_samples):
-        if gt_confidence_inspection[i] > 0.6:
+
+        print(gt_confidence_inspection[i])
+
+        if preds_inspection[i] == class_labels_inspection[i]:
             isolated_indices_local.append(i)
-            labels.append(1) # suspected as positive
+            labels.append(1)
         else:
+            other_indices_local.append(i)
             labels.append(0)
+
     projected_feats_isolated = projected_feats[isolated_indices_local]
+    projected_feats_other = projected_feats[other_indices_local]
 
     num_isolated = projected_feats_isolated.shape[0]
 
     print('num_isolated : ', num_isolated)
 
-    if num_isolated >= 2:
+    if num_isolated >= 2 and num_isolated < num_samples - 2:
 
         mu = np.zeros((2,2))
         covariance = np.zeros((2,2,2))
-        mu[0] = projected_feats_clean.mean(axis=0)
-        covariance[0] = np.cov(projected_feats_clean.T)
+
+        mu[0] = projected_feats_other.mean(axis=0)
+        covariance[0] = np.cov(projected_feats_other.T)
+
         mu[1] = projected_feats_isolated.mean(axis=0)
         covariance[1] = np.cov(projected_feats_isolated.T)
+
         covariance += 0.001
 
         single_cluster_likelihood = 0
         two_clusters_likelihood = 0
+
         for i in range(num_samples):
+
             single_cluster_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[0],
                                                                         cov=covariance[0], allow_singular=True).sum()
+
             two_clusters_likelihood += multivariate_normal.logpdf(x=projected_feats[i:i + 1], mean=mu[labels[i]],
                                                                       cov=covariance[labels[i]], allow_singular=True).sum()
 
         likelihood_ratio = np.exp((two_clusters_likelihood - single_cluster_likelihood) /num_samples)
 
     else:
+
         likelihood_ratio = 1
 
 
@@ -125,7 +146,7 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
             loss.backward()
             optimizer.step()
 
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             print('<Pretrain> Train Epoch: {}/{} \tLoss: {:.6f}'.format(epoch, pretrain_epochs, loss.item()))
             if args.debug_info:
                 model.eval()
@@ -165,9 +186,17 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
 
     ######### Distillation Step ################
     model = arch(num_classes=num_classes)
+    #model.load_state_dict(
+    #            torch.load(os.path.join(inspection_set_dir, 'pretrain_classwise_base_seed=%d.pt' % (args.seed))))
+    #print('load : ', os.path.join(inspection_set_dir, 'pretrain_classwise_base_seed=%d.pt' % (args.seed)) )
+
     model.load_state_dict(
-                torch.load(os.path.join(inspection_set_dir, 'pretrain_classwise_base_seed=%d.pt' % (args.seed))))
-    print('load : ', os.path.join(inspection_set_dir, 'pretrain_classwise_base_seed=%d.pt' % (args.seed)) )
+                torch.load(os.path.join(inspection_set_dir, 'confused_2_seed=%d.pt' % (args.seed))))
+    print('load : ', os.path.join(inspection_set_dir, 'confused_2_seed=%d.pt' % (args.seed)) )
+
+    print('<----- freeze_non_bn ------>')
+    model.freeze_none_bn()
+
     model = nn.DataParallel(model)
     model = model.cuda()
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
@@ -175,6 +204,8 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
 
     distilled_set_iters = iter(distilled_set_loader)
     clean_set_iters = iter(clean_set_loader)
+
+    rounder = 0
 
     for batch_idx in tqdm(range(distillation_iters)):
         model.train()
@@ -187,19 +218,36 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
         data_shift, target_shift = data_shift.cuda(), target_shift.cuda()
 
 
+        #rid = batch_idx // 100
+        #if (rid + rounder + 1) % num_classes == 0:
+        #    rounder += 1
+
         if dataset_name != 'ember':
-            target_clean = (target_shift + num_classes - 1) % num_classes
+
+            #target_confusion = target_shift
+            #model.module.freeze_none_bn()
+
+            """
+            target_clean = (target_shift + num_classes - 2) % num_classes
             s = len(target_clean)
             target_confusion = torch.randint(high=num_classes, size=(s,)).cuda()
             for i in range(s):
                 if target_confusion[i] == target_clean[i]:
                     # make sure the confusion set is never correctly labeled
-                    target_confusion[i] = (target_confusion[i] + 1) % num_classes
+                    target_confusion[i] = (target_confusion[i] + 1) % num_classes"""
+
+            target_clean = (target_shift + num_classes - 2) % num_classes
+            term = batch_idx // 20
+            if (term + rounder) % num_classes == 0:
+                rounder += 1
+            target_confusion = (target_clean + term + rounder) % num_classes
+
+
         else:
            target_confusion = target_shift
 
 
-        if batch_idx % batch_factor == 0:
+        if (batch_idx+1) % batch_factor == 0:
 
             try:
                 data, target = next(distilled_set_iters)
@@ -230,10 +278,13 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
                 normalizer += (1 / freq[gt])
             loss_inspection_batch = loss_inspection_batch / normalizer
 
-            weighted_loss = (loss_confusion_batch * (lamb - 1) + loss_inspection_batch) / lamb
 
+            #weighted_loss = loss_mix.mean()
+            #weighted_loss = loss_inspection_batch_all.mean()
+            weighted_loss = (loss_confusion_batch * (lamb - 1) + loss_inspection_batch) / lamb
             loss_confusion_batch = loss_confusion_batch.item()
             loss_inspection_batch = loss_inspection_batch.item()
+
         else:
             output = model(data_shift)
             weighted_loss = loss_confusion_batch = criterion_no_reduction(output, target_confusion).mean()
@@ -243,7 +294,8 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
         weighted_loss.backward()
         optimizer.step()
 
-        if (batch_idx + 1) % 1000 == 0:
+        if (batch_idx + 1) % 400 == 0:
+
             print('<Round-{} : Distillation Step> Batch_idx: {}, lr: {}, lamb : {}, moment : {}, Loss: {:.6f}'.format(
                 confusion_iter, batch_idx + 1, optimizer.param_groups[0]['lr'], lamb, momentum,
                 weighted_loss.item()))
@@ -264,28 +316,32 @@ def confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, 
                     tools.test_ember(model=model, test_loader=debug_packet['test_set_loader'],
                                      backdoor_test_loader=debug_packet['backdoor_test_set_loader'])
 
+    model.module.unfreeze_none_bn()
+
     torch.save( model.module.state_dict(),
-               os.path.join(inspection_set_dir, 'confused_%d_seed=%d.pt' % (confusion_iter, args.seed)) )
-    print('save : ', os.path.join(inspection_set_dir, 'confused_%d_seed=%d.pt' % (confusion_iter, args.seed)))
+               os.path.join(inspection_set_dir, 'classwise_confused_%d_seed=%d.pt' % (confusion_iter, args.seed)) )
+    print('save : ', os.path.join(inspection_set_dir, 'classwise_confused_%d_seed=%d.pt' % (confusion_iter, args.seed)))
 
     return model
 
 
 
 # restore from a certain iteration step
-def distill(target_class, args, params, inspection_set, n_iter, criterion_no_reduction,
-            dataset_name = None, final_budget = None, class_wise = False):
+def distill(target_class, arch, args, params, inspection_set, n_iter, criterion_no_reduction,
+            dataset_name = None, final_budget = None, class_wise = False, debug=False):
 
     kwargs = params['kwargs']
     inspection_set_dir = params['inspection_set_dir']
     num_classes = params['num_classes']
     num_samples = len(inspection_set)
-    arch = params['arch']
     distillation_ratio = params['distillation_ratio']
     num_confusion_iter = len(distillation_ratio) + 1
 
     model = arch(num_classes=num_classes)
-    ckpt = torch.load(os.path.join(inspection_set_dir, 'confused_%d_seed=%d.pt' % (n_iter, args.seed)))
+    if debug:
+        ckpt = torch.load(os.path.join(inspection_set_dir, 'confused_%d_seed=%d.pt' % (2, args.seed)))
+    else:
+        ckpt = torch.load(os.path.join(inspection_set_dir, 'classwise_confused_%d_seed=%d.pt' % (n_iter, args.seed)))
     model.load_state_dict(ckpt)
     model = nn.DataParallel(model)
     model = model.cuda()
@@ -319,10 +375,10 @@ def distill(target_class, args, params, inspection_set, n_iter, criterion_no_red
                 loss_array.append(batch_loss[i].item())
                 gts.append(int(target[i].item()))
                 if dataset_name != 'ember':
-                    if output[i][target[i]] > 0.6:
+                    if preds[i] == target[i]:
                         correct_instances.append(st + i)
                 else:
-                    if (target[i] == 0 and output[i] < 0.4) or (target[i] == 1 and output[i] > 0.6):
+                    if (target[i] == 0 and output[i] < 0.5) or (target[i] == 1 and output[i] >= 0.5):
                         correct_instances.append(st + i)
 
             st += this_batch_size
@@ -336,6 +392,8 @@ def distill(target_class, args, params, inspection_set, n_iter, criterion_no_red
         top_indices_each_class[gt].append(t)
 
 
+
+
     if args.debug_info:
 
         print('num_correct : ', len(correct_instances))
@@ -344,6 +402,8 @@ def distill(target_class, args, params, inspection_set, n_iter, criterion_no_red
             cover_indices = torch.load(os.path.join(inspection_set_dir, 'cover_indices'))
 
         poison_indices = torch.load(os.path.join(inspection_set_dir, 'poison_indices'))
+
+
 
         cover_dist = []
         poison_dist = []

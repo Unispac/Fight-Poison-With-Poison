@@ -1,4 +1,4 @@
-from utils import resnet, vgg, mobilenetv2, ember_nn
+from utils import resnet, vgg, mobilenetv2, ember_nn, gtsrb_cnn
 from utils import supervisor
 from utils import tools
 import torch
@@ -16,8 +16,8 @@ target_class = {
 }
 
 # default target class (without loss of generality)
-source_class = 1 # default source class for TaCT
-cover_classes = [5,7] # default cover classes for TaCT
+source_class = 1           #||| default source class for TaCT
+cover_classes = [5,7]      #||| default cover classes for TaCT
 poison_seed = 0
 record_poison_seed = True
 record_model_arch = False
@@ -46,6 +46,7 @@ arch = {
     ### for base model & poison distillation
     'cifar10': resnet.ResNet18,
     'gtsrb' : resnet.ResNet18,
+    #resnet.ResNet18,
     'imagenette': resnet.ResNet18,
     'ember': ember_nn.EmberNN,
     'imagenet' : resnet.ResNet18
@@ -125,6 +126,12 @@ def get_params(args):
             transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]),
         ])
 
+        distillation_ratio = [1/2, 1/5, 1/25, 1/50, 1/100]
+        momentums = [0.7, 0.7, 0.7, 0.7, 0.7, 0.7]
+        lambs = [20, 20, 20, 30, 30, 15]
+        lrs = [0.001, 0.001, 0.001, 0.01, 0.01, 0.01]
+        batch_factors = [2, 2, 2, 2, 2, 2]
+
     elif args.dataset == 'gtsrb':
 
         num_classes = 43
@@ -139,6 +146,12 @@ def get_params(args):
             transforms.ToTensor(),
             transforms.Normalize((0.3337, 0.3064, 0.3171), (0.2672, 0.2564, 0.2629))
         ])
+
+        distillation_ratio = [1/2, 1/5, 1/25, 1/50, 1/100]
+        momentums = [0.7, 0.7, 0.7, 0.7, 0.7, 0.7]
+        lambs = [20, 20, 20, 20, 20, 20]
+        lrs = [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
+        batch_factors = [2, 2, 4, 8, 8, 2] # 2,2,4,8,8,8
 
     elif args.dataset == 'imagenette':
 
@@ -155,6 +168,12 @@ def get_params(args):
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
 
+        distillation_ratio = [1/2, 1/5, 1/25, 1/50, 1/100]
+        momentums = [0.7, 0.7, 0.7, 0.7, 0.7, 0.7]
+        lambs = [20, 20, 20, 40, 30, 5]
+        lrs = [0.001, 0.001, 0.001, 0.01, 0.01, 0.01]
+        batch_factors = [2, 2, 2, 2, 2, 2]
+
     else:
         raise NotImplementedError('<Unimplemented Dataset> %s' % args.dataset)
 
@@ -162,27 +181,12 @@ def get_params(args):
     params = {
         'data_transform' : data_transform_normalize,
         'data_transform_aug' : data_transform_aug,
-        ####################################################################
-        #'distillation_ratio': [1/2, 1/5, 1/25, 1/50, 1/100, 1/100, 1/100],
-        #'momentums': [0.5, 0.5, 0.5, 0.7, 0.7, 0.7, 0.7, 0.7],
-        #'lambs': [20, 40, 60, 60, 60, 60, 40, 10],
-        #'lrs': [0.001, 0.001, 0.003, 0.003, 0.003, 0.003, 0.003, 0.005],
-        #'batch_factors': [2, 2, 2, 2, 2, 2, 2, 2],
-        ####################################################################
 
-
-        #'distillation_ratio': [1/2, 1/5, 1/25, 1/50],
-        #'momentums': [0.5, 0.5, 0.5, 0.7, 0.7],
-        #'lambs': [20, 40, 60, 30, 30],
-        #'lrs': [0.001, 0.001, 0.003, 0.005, 0.005],
-        #'batch_factors': [2, 2, 2, 8, 4],
-
-        'distillation_ratio': [1/2, 1/5, 1/25, 1/50],
-        'momentums': [0.5, 0.5, 0.5, 0.7, 0.7], # 0.5, 0.7
-        'lambs': [20, 40, 60, 30, 20], # 30, 15
-        'lrs': [0.001, 0.001, 0.003, 0.005, 0.005],
-        'batch_factors': [2, 2, 2, 2, 2], # 4,4
-
+        'distillation_ratio': distillation_ratio,
+        'momentums': momentums,
+        'lambs': lambs,
+        'lrs': lrs,
+        'batch_factors': batch_factors,
         'weight_decay' : 1e-4,
         'num_classes' : num_classes,
         'batch_size' : 32,
@@ -216,11 +220,9 @@ def get_dataset(inspection_set_dir, data_transform, args, num_classes = 10):
                                   label_path=clean_label_path, transforms=data_transform,
                                   num_classes=num_classes, shift=True)
 
-    clean_set_no_shift = tools.IMG_Dataset(data_dir=clean_set_img_dir,
-                                  label_path=clean_label_path, transforms=data_transform,
-                                  num_classes=num_classes)
 
-    return inspection_set, clean_set, clean_set_no_shift
+
+    return inspection_set, clean_set
 
 
 def get_packet_for_debug(poison_set_dir, data_transform, batch_size, args):
@@ -236,7 +238,7 @@ def get_packet_for_debug(poison_set_dir, data_transform, batch_size, args):
     kwargs = {'num_workers': 2, 'pin_memory': True}
     test_set_loader = torch.utils.data.DataLoader(
         test_set,
-        batch_size=batch_size, shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
+        batch_size=256, shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
 
     trigger_transform = data_transform
     poison_transform = supervisor.get_poison_transform(poison_type=args.poison_type, dataset_name=args.dataset,
