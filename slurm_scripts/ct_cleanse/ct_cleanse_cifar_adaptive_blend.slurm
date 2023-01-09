@@ -13,4 +13,4 @@ module purge
 module load anaconda3/2022.5
 conda activate py38
 
-python -u ct_cleanser.py -dataset cifar10 -poison_type adaptive_blend -poison_rate 0.003 -cover_rate 0.003 -devices 0,1 -debug_info -alpha 0.15 -test_alpha 0.2
+python -u ct_cleanser.py -dataset cifar10 -poison_type adaptive_blend -poison_rate 0.003 -cover_rate 0.003 -devices 0,1 -debug_info -alpha 0.15 -test_alpha 0.2 -seed 666

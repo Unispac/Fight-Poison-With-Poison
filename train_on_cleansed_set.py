@@ -97,8 +97,8 @@ if args.dataset == 'cifar10':
 
     momentum = 0.9
     weight_decay = 1e-4
-    milestones = [100, 150]
-    epochs = 200
+    milestones = [50, 75]
+    epochs = 100
     learning_rate = 0.1
 
 elif args.dataset == 'gtsrb':
@@ -124,8 +124,9 @@ elif args.dataset == 'gtsrb':
     momentum = 0.9
     weight_decay = 1e-4
     epochs = 100
-    milestones = torch.tensor([40, 80])
-    learning_rate = 0.1
+    milestones = [30, 60]
+    learning_rate = 0.01
+
 
 elif args.dataset == 'ember':
 
@@ -252,13 +253,14 @@ if args.dataset != 'ember':
 
     print(f"Will save to '{supervisor.get_model_dir(args, cleanse=True)}'.")
     if os.path.exists(supervisor.get_model_dir(args, cleanse=True)):  # exit if there is an already trained model
-        print(f"Model '{supervisor.get_model_dir(args, cleanse=True)}' already exists!")
-        model = arch(num_classes=num_classes)
-        model.load_state_dict(torch.load(supervisor.get_model_dir(args, cleanse=True)))
-        model = model.cuda()
-        tools.test(model=model, test_loader=test_set_loader, poison_test=True, poison_transform=poison_transform,
-                   num_classes=num_classes, source_classes=source_classes)
-        exit(0)
+        pass
+        #print(f"Model '{supervisor.get_model_dir(args, cleanse=True)}' already exists!")
+        #model = arch(num_classes=num_classes)
+        #model.load_state_dict(torch.load(supervisor.get_model_dir(args, cleanse=True)))
+        #model = model.cuda()
+        #tools.test(model=model, test_loader=test_set_loader, poison_test=True, poison_transform=poison_transform,
+        #           num_classes=num_classes, source_classes=source_classes)
+        #exit(0)
     criterion = nn.CrossEntropyLoss().cuda()
 else:
     model_path = os.path.join('poisoned_train_set', 'ember', args.ember_options, 'model_trained_on_cleansed_data_seed=%d.pt' % args.seed)
@@ -268,8 +270,11 @@ else:
     criterion = nn.BCELoss().cuda()
 
 
+print('milestones:', milestones)
 optimizer = torch.optim.SGD(model.parameters(), learning_rate, momentum=momentum, weight_decay=weight_decay)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones)
+
+cnt = 0
 from tqdm import tqdm
 for epoch in range(1,epochs+1):
     start_time = time.perf_counter()
@@ -282,11 +287,12 @@ for epoch in range(1,epochs+1):
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
+
     scheduler.step()
-    
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
-    print('<Cleansed Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, Time: {:.2f}s'.format(epoch, loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
+    print('<Cleansed Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, Time: {:.2f}s'.format(epoch,
+                                            loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
 
     # Test
     if args.dataset != 'ember':

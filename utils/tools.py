@@ -14,7 +14,8 @@ from utils import supervisor
 from tqdm import tqdm
 
 class IMG_Dataset(Dataset):
-    def __init__(self, data_dir, label_path, transforms = None, num_classes = 10, shift = False, random_labels = False):
+    def __init__(self, data_dir, label_path, transforms = None, num_classes = 10, shift = False, random_labels = False,
+                 fixed_label = None):
         """
         Args:
             data_dir: directory of the data
@@ -28,6 +29,10 @@ class IMG_Dataset(Dataset):
         self.num_classes = num_classes
         self.shift = shift
         self.random_labels = random_labels
+        self.fixed_label = fixed_label
+
+        if self.fixed_label is not None:
+            self.fixed_label = torch.tensor(self.fixed_label, dtype=torch.long)
 
     def __len__(self):
         return len(self.gt)
@@ -43,7 +48,10 @@ class IMG_Dataset(Dataset):
         else:
             label = self.gt[idx]
             if self.shift:
-                label = (label + idx) % self.num_classes
+                label = (label+1) % self.num_classes
+
+        if self.fixed_label is not None:
+            label = self.fixed_label
 
         return img, label
 
