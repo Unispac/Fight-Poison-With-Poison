@@ -40,6 +40,7 @@ trigger_default = {
     'SleeperAgent': 'none',
     'none' : 'none',
     'badnet_all_to_all' : 'badnet_patch.png',
+    'trojannn': 'none',
 }
 
 arch = {
@@ -48,7 +49,8 @@ arch = {
     'gtsrb' : resnet.ResNet18,
     'imagenette': resnet.ResNet18,
     'ember': ember_nn.EmberNN,
-    'imagenet' : resnet.ResNet18
+    'imagenet' : resnet.ResNet18,
+    'abl':  resnet.ResNet18,
     #'abl':  wresnet.WideResNet
 }
 

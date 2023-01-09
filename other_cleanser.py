@@ -40,6 +40,10 @@ args = parser.parse_args()
 
 if args.trigger is None:
     args.trigger = config.trigger_default[args.poison_type]
+    
+all_to_all = False
+if args.poison_type == 'badnet_all_to_all':
+    all_to_all = True
 
 tools.setup_seed(args.seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
@@ -249,9 +253,11 @@ for (vid, path) in enumerate(model_list):
                 suspicious_indices.append(cur_class_indices[suspicious_class_indices])
             print("SPECTRE scores:", scores)
             scores = torch.tensor(scores)
-            suspect_target_class = scores.argmax(dim=0) # class with the highest score is suspected as the target class
-            suspicious_indices = suspicious_indices[suspect_target_class]
-            # suspicious_indices = torch.cat(suspicious_indices, dim=0)
+            if not all_to_all: # targeted atack
+                suspect_target_class = scores.argmax(dim=0) # class with the highest score is suspected as the target class
+                suspicious_indices = suspicious_indices[suspect_target_class]
+            else: # all-to-all attack
+                suspicious_indices = torch.cat(suspicious_indices, dim=0)
         elif args.cleanser == 'CT':
             from other_cleansers import CT_feature_inference
             suspicious_indices = CT_feature_inference.cleanser(poisoned_set, clean_set, model, num_classes)

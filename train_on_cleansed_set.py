@@ -1,12 +1,11 @@
 import argparse
 import os, sys
 from tqdm import tqdm
-from utils import default_args
 import config
 from torchvision import datasets, transforms
 from torch import nn
 import torch
-from utils import supervisor, tools
+from utils import default_args, supervisor, tools, imagenet
 import time
 
 parser = argparse.ArgumentParser()
@@ -40,6 +39,22 @@ parser.add_argument('-seed', type=int, required=False, default=default_args.seed
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
 tools.setup_seed(args.seed)
+
+if args.trigger is None:
+    if args.dataset != 'imagenette' and args.dataset != 'imagenet':
+        args.trigger = config.trigger_default[args.poison_type]
+    elif args.dataset == 'imagenet':
+        args.trigger = imagenet.triggers[args.poison_type]
+    else:
+        if args.poison_type == 'badnet':
+            args.trigger = 'badnet_high_res.png'
+        else:
+            raise NotImplementedError('%s not implemented for imagenette' % args.poison_type)
+
+
+all_to_all = False
+if args.poison_type == 'badnet_all_to_all':
+    all_to_all = True
 
 if args.log:
     out_path = 'logs'
@@ -278,11 +293,10 @@ for epoch in range(1,epochs+1):
         if epoch % 20 == 0:
             tools.test(model=model, test_loader=test_set_loader, poison_test=True,
                            poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes)
-            torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
+            torch.save(model.module.state_dict(), supervisor.get_model_dir(args, cleanse=True))
     else:
         if epoch % 5 == 0:
-            tools.test_ember(model=model, test_loader=test_set_loader,
-                                 backdoor_test_loader=backdoor_test_set_loader)
+            tools.test_ember(model=model, test_loader=test_set_loader, backdoor_test_loader=backdoor_test_set_loader)
             torch.save(model.module.state_dict(), model_path)
 
 if args.dataset != 'ember':
