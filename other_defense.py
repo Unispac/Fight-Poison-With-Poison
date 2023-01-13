@@ -1,5 +1,5 @@
 import torch
-from other_defenses_tool_box import NC, STRIP, FP, ABL, NAD
+from other_defenses_tool_box import NC, STRIP, FP, ABL, NAD, SentiNet
 import argparse, config, os, sys
 from utils import supervisor, tools, default_args
 
@@ -26,7 +26,7 @@ parser.add_argument('-model', type=str, required=False, default=None)
 parser.add_argument('-model_path', required=False, default=None)
 parser.add_argument('-no_normalize', default=False, action='store_true')
 parser.add_argument('-defense', type=str, required=True,
-                    choices=['ABL', 'NC', 'STRIP', 'FP', 'NAD'],)
+                    choices=['ABL', 'NC', 'STRIP', 'FP', 'NAD', 'SentiNet'],)
 parser.add_argument('-devices', type=str, default='0')
 parser.add_argument('-log', default=False, action='store_true')
 parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
@@ -108,6 +108,13 @@ elif args.defense == 'NAD':
         args,
         teacher_epochs=10,
         erase_epochs=20
+    )
+    defense.detect()
+elif args.defense == 'SentiNet':
+    defense = SentiNet(
+        args,
+        defense_fpr=0.1,
+        N=100,
     )
     defense.detect()
 else: raise NotImplementedError()
