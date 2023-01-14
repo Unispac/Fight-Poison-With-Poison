@@ -384,18 +384,19 @@ for epoch in range(1, epochs+1):  # train backdoored base model
     scheduler.step()
 
     # Test
-    if epoch % 20 == 0:
-        if args.dataset != 'ember':
-            tools.test(model=model, test_loader=test_set_loader, poison_test=True,
-                    poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes)
-            torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
-        else:
-            tools.test_ember(model=model, test_loader=test_set_loader,
-                            backdoor_test_loader=backdoor_test_set_loader)
-            torch.save(model.module.state_dict(), model_path)
+    # if epoch % 20 == 0:
+    #     if args.dataset != 'ember':
+    #         tools.test(model=model, test_loader=test_set_loader, poison_test=True,
+    #                 poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes)
+    #         torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
+    #     else:
+    #         tools.test_ember(model=model, test_loader=test_set_loader,
+    #                         backdoor_test_loader=backdoor_test_set_loader)
+    #         torch.save(model.module.state_dict(), model_path)
 
     if args.dataset != 'ember':
-        if True: #epoch % 5 == 0:
+        if True:
+        # if epoch % 5 == 0:
             if args.dataset == 'imagenet':
                 tools.test_imagenet(model=model, test_loader=test_set_loader,
                                  poison_transform=poison_transform)

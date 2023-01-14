@@ -8,3 +8,4 @@ python create_poisoned_set.py -dataset cifar10 -poison_type adaptive_blend -pois
 python create_poisoned_set.py -dataset cifar10 -poison_type adaptive_patch -poison_rate 0.003 -cover_rate 0.006
 python create_poisoned_set.py -dataset cifar10 -poison_type ISSBA -poison_rate 0.02
 python create_poisoned_set.py -dataset cifar10 -poison_type none
+python create_poisoned_set.py -dataset cifar10 -poison_type trojan -poison_rate 0.003

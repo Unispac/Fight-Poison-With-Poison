@@ -41,6 +41,7 @@ trigger_default = {
     'none' : 'none',
     'badnet_all_to_all' : 'badnet_patch.png',
     'trojannn': 'none',
+    'trojan': 'trojan_square_32.png',
 }
 
 arch = {
