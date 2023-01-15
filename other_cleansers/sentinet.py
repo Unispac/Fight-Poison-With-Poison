@@ -22,7 +22,7 @@ class SentiNet():
         self.args = args
         
         # Only support localized attacks
-        support_list = ['none', 'adaptive_patch', 'badnet', 'badnet_all_to_all', 'dynamic', 'TaCT']
+        support_list = ['none', 'adaptive_patch', 'badnet', 'trojan', 'badnet_all_to_all', 'dynamic', 'TaCT']
         assert args.poison_type in support_list
         assert args.dataset in ['cifar10', 'gtsrb']
 
@@ -147,8 +147,8 @@ class SentiNet():
             # print("Saved figure at {}".format(save_path))
             # plt.clf()
             
-            # torch.save(est_avgconf, os.path.join(poison_set_dir, 'SentiNet_est_avgconf'))
-            # torch.save(est_fooled, os.path.join(poison_set_dir, 'SentiNet_est_fooled'))
+            torch.save(est_avgconf, os.path.join(poison_set_dir, 'SentiNet_est_avgconf'))
+            torch.save(est_fooled, os.path.join(poison_set_dir, 'SentiNet_est_fooled'))
         
         
         # Select the maximum marginal points by bins
@@ -162,7 +162,9 @@ class SentiNet():
             avgconf = est_avgconf[i]
             fooled = est_fooled[i]
             k = math.floor((est_avgconf[i] - x_min) / bin_size)
+            if y[k] <= fooled: x[k] = avgconf
             y[k] = max(y[k], fooled)
+            
         for i in range(len(x)):
             x[i] = x_min + i * bin_size + bin_size / 2;
         
@@ -214,7 +216,7 @@ class SentiNet():
         
         
         plt.scatter(est_avgconf, est_fooled, marker='o', color='blue', s=5, alpha=1.0)
-        # plt.scatter(x, y, marker='o', color='green', s=5, alpha=1.0)
+        plt.scatter(x, y, marker='o', color='green', s=5, alpha=1.0)
         x = np.linspace(x_min, x_max)
         y = fit_func(x)
         y_thr = thr_func(x)
@@ -234,8 +236,8 @@ class SentiNet():
         
         
         # Inspect the poisoned set
-        # if os.path.exists(os.path.join(poison_set_dir, 'SentiNet_clean_avgconf')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_clean_fooled')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_poison_avgconf')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_poison_fooled')):
-        if False:
+        if os.path.exists(os.path.join(poison_set_dir, 'SentiNet_clean_avgconf')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_clean_fooled')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_poison_avgconf')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_poison_fooled')):
+        # if False:
             clean_avgconf = torch.load(os.path.join(poison_set_dir, 'SentiNet_clean_avgconf'))
             clean_fooled = torch.load(os.path.join(poison_set_dir, 'SentiNet_clean_fooled'))
             poison_avgconf = torch.load(os.path.join(poison_set_dir, 'SentiNet_poison_avgconf'))
@@ -322,7 +324,7 @@ class SentiNet():
                             adv_input[:, :, posx:posx+dx, posy:posy+dy] = poison_input[0, :, posx:posx+dx, posy:posy+dy]
                             inert_input[:, :, posx:posx+dx, posy:posy+dy] = self.normalizer(torch.rand((inert_input.shape[0], 3, dx, dy))).cuda()
                             # inert_input[:, :, posx:posx+dx, posy:posy+dy] = self.random_img[:, posx:posx+dx, posy:posy+dy]
-                        elif args.poison_type == 'TaCT':
+                        elif args.poison_type == 'TaCT' or args.poison_type == 'trojan':
                             dx = dy = 16
                             posx = self.img_size - dx
                             posy = self.img_size - dy
@@ -392,7 +394,19 @@ class SentiNet():
         all_avgconf[poison_indices[:len(poison_avgconf)]] = poison_avgconf
         all_fooled[poison_indices[:len(poison_fooled)]] = poison_fooled
         
-        suspicious_indices = (all_fooled > thr_func(all_avgconf)).nonzero().reshape(-1)
+        all_d = torch.zeros(len(poison_fooled) + len(clean_fooled))
+        for i in tqdm(range(len(all_fooled))):
+            x1 = all_avgconf[i].item()
+            y1 = all_fooled[i].item()
+            loss_func = lambda x: (x - x1) ** 2 + (fit_func(x) - y1) ** 2
+            res = minimize(loss_func, (2, 0), method='cobyla')
+            d1 = math.sqrt(res.fun)
+            if y1 < fit_func(x1): d1 = -d1
+            all_d[i] = d1
+        
+        
+        suspicious_indices = (all_d > d_thr).nonzero().reshape(-1)
+        # suspicious_indices = (all_fooled > thr_func(all_avgconf)).nonzero().reshape(-1)
         print(suspicious_indices)
         
         return suspicious_indices
