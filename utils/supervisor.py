@@ -56,11 +56,11 @@ def get_dir_core(args, include_model_name=False, include_poison_seed=False):
     if args.poison_type == 'blend' or args.poison_type == 'basic' or args.poison_type == 'clean_label':
         blend_alpha = '%.3f' % args.alpha
         dir_core = '%s_%s_%s_alpha=%s_trigger=%s' % (args.dataset, args.poison_type, ratio, blend_alpha, args.trigger)
-    elif args.poison_type == 'adaptive' or args.poison_type == 'adaptive_blend' or args.poison_type == 'TaCT':
+    elif args.poison_type == 'adaptive' or args.poison_type == 'adaptive_blend':
         blend_alpha = '%.3f' % args.alpha
         cover_rate = '%.3f' % args.cover_rate
         dir_core = '%s_%s_%s_alpha=%s_cover=%s_trigger=%s' % (args.dataset, args.poison_type, ratio, blend_alpha, cover_rate, args.trigger)
-    elif args.poison_type == 'adaptive_patch' or args.poison_type == 'WaNet':
+    elif args.poison_type == 'adaptive_patch' or args.poison_type == 'TaCT' or args.poison_type == 'WaNet':
         cover_rate = '%.3f' % args.cover_rate
         dir_core = '%s_%s_%s_cover=%s' % (args.dataset, args.poison_type, ratio, cover_rate)
     elif args.poison_type == 'adaptive_patch' or args.poison_type == 'adaptive_physical':
@@ -82,11 +82,11 @@ def get_poison_set_dir(args):
     if args.poison_type == 'blend' or args.poison_type == 'basic' or args.poison_type == 'clean_label':
         blend_alpha = '%.3f' % args.alpha
         poison_set_dir = 'poisoned_train_set/%s/%s_%s_alpha=%s_trigger=%s' % (args.dataset, args.poison_type, ratio, blend_alpha, args.trigger)
-    elif args.poison_type == 'adaptive' or args.poison_type == 'adaptive_blend' or args.poison_type == 'TaCT':
+    elif args.poison_type == 'adaptive' or args.poison_type == 'adaptive_blend':
         blend_alpha = '%.3f' % args.alpha
         cover_rate = '%.3f' % args.cover_rate
         poison_set_dir = 'poisoned_train_set/%s/%s_%s_alpha=%s_cover=%s_trigger=%s' % (args.dataset, args.poison_type, ratio, blend_alpha, cover_rate, args.trigger)
-    elif args.poison_type == 'adaptive_patch' or args.poison_type == 'WaNet':
+    elif args.poison_type == 'adaptive_patch' or args.poison_type == 'TaCT' or args.poison_type == 'WaNet':
         cover_rate = '%.3f' % args.cover_rate
         poison_set_dir = 'poisoned_train_set/%s/%s_%s_cover=%s' % (args.dataset, args.poison_type, ratio, cover_rate)
     elif args.poison_type == 'adaptive_patch' or args.poison_type == 'adaptive_physical':
@@ -158,7 +158,7 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
     if poison_type in ['badnet', 'blend', 'clean_label', 'refool',
                        'adaptive', 'adaptive_blend', 'adaptive_patch',
                        'SIG', 'TaCT', 'WaNet', 'SleeperAgent', 'none',
-                       'badnet_all_to_all']:
+                       'badnet_all_to_all', 'trojan']:
 
         if trigger_transform is None:
             trigger_transform = transforms.Compose([
@@ -189,10 +189,14 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
         if poison_type == 'badnet':
             from poison_tool_box import badnet
             poison_transform = badnet.poison_transform(img_size=img_size, trigger=trigger, target_class=target_class)
-
+        
         elif poison_type == 'badnet_all_to_all':
             from poison_tool_box import badnet_all_to_all
             poison_transform = badnet_all_to_all.poison_transform(img_size=img_size, trigger=trigger, num_classes = num_classes)
+
+        elif poison_type == 'trojan':
+            from poison_tool_box import trojan
+            poison_transform = trojan.poison_transform(img_size=img_size, trigger_mark=trigger, trigger_mask=trigger_mask, target_class=target_class)
 
         elif poison_type == 'blend':
             from poison_tool_box import blend

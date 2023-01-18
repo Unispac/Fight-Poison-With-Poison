@@ -3,6 +3,10 @@
 assets/pca*
 assets/tsne*
 assets/oracle*
+assets/SentiNet*
+assets/2d_*
+assets/poison_prob_*
+assets/clean_prob_*
 
 data/cifar10/cifar*
 data/cifar10/clean_label/*
@@ -13,6 +17,7 @@ data/imagenette2/*
 !data/imagenette2/.dummy
 data/VOCdevkit/*
 !data/VOCdevkit/.dummy
+data/*.tar
 
 models/*
 !models/.dummy

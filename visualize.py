@@ -2,11 +2,14 @@ import random
 import numpy as np
 import os
 import argparse
+from torch import nn
+from utils import supervisor, tools, default_args
+import config
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
 from sklearn import svm
-from utils import default_args
+from sklearn.metrics import silhouette_score
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-method', type=str, required=False, default='pca',
@@ -83,7 +86,7 @@ class oracle_visualizer:
         poison = poison.numpy()
         num_poison = len(poison)
 
-        print(clean.shape, poison.shape)
+        # print(clean.shape, poison.shape)
 
         X = np.concatenate([clean, poison], axis=0)
         y = []
@@ -94,6 +97,7 @@ class oracle_visualizer:
             y.append(1)
 
         self.clf.fit(X, y)
+        print("SVM Accuracy:", self.clf.score(X, y))
 
         norm = np.linalg.norm(self.clf.coef_)
         self.clf.coef_ = self.clf.coef_ / norm
@@ -146,6 +150,19 @@ elif args.dataset == 'gtsrb':
         data_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.3337, 0.3064, 0.3171), (0.2672, 0.2564, 0.2629))
+        ])
+
+elif args.dataset == 'imagenette':
+
+    num_classes = 10
+    if args.no_normalize:
+        data_transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+    else:
+        data_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
 
 else:
@@ -332,8 +349,6 @@ for vid, path in enumerate(model_list):
         random.shuffle(ids)
         #class_clean_features = feats[ids[:num_clean]]
         #class_poisoned_features = feats[ids[-num_poisoned:]]
-
-
         # class_poisoned_features = poisoned_features
 
 
@@ -341,11 +356,15 @@ for vid, path in enumerate(model_list):
         print(class_clean_mean.shape)
         clean_dis = torch.norm(class_clean_features - class_clean_mean, dim=1).mean()
         poison_dis = torch.norm(class_poisoned_features - class_clean_mean, dim=1).mean()
-        print('clean_dis : %f, poison_dis : %f' % (clean_dis, poison_dis))
+        print('clean_dis: %f, poison_dis: %f' % (clean_dis, poison_dis))
+
+        tmp_labels = [0] * len(class_clean_features) + [1] * len(class_poisoned_features)
+        silhouette = silhouette_score(feats, tmp_labels)
+        print('Silhouette Score:', silhouette)
+        # exit()
 
         if args.method == 'pca':
             visualizer = PCA(n_components=2)
-
         elif args.method == 'tsne':
             visualizer = TSNE(n_components=2)
         elif args.method == 'oracle':
@@ -361,8 +380,8 @@ for vid, path in enumerate(model_list):
         if args.method == 'oracle':
             clean_projection, poison_projection = visualizer.fit_transform(class_clean_features,
                                                                            class_poisoned_features)
-            print(clean_projection)
-            print(poison_projection)
+            # print(clean_projection)
+            # print(poison_projection)
 
             # bins = np.linspace(-2, 2, 100)
             plt.figure(figsize=(7, 5))

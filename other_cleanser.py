@@ -31,7 +31,7 @@ parser.add_argument('-model_path', required=False, default=None)
 
 parser.add_argument('-no_normalize', default=False, action='store_true')
 parser.add_argument('-cleanser', type=str, required=True,
-                    choices=['SCAn', 'AC', 'SS', 'Strip', 'CT', 'SPECTRE']) # scan, activation clustering, spectral signature
+                    choices=['SCAn', 'AC', 'SS', 'Strip', 'CT', 'SPECTRE', 'SentiNet']) # scan, activation clustering, spectral signature
 parser.add_argument('-devices', type=str, default='0')
 parser.add_argument('-log', default=False, action='store_true')
 parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
@@ -40,6 +40,10 @@ args = parser.parse_args()
 
 if args.trigger is None:
     args.trigger = config.trigger_default[args.poison_type]
+    
+all_to_all = False
+if args.poison_type == 'badnet_all_to_all':
+    all_to_all = True
 
 tools.setup_seed(args.seed)
 os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
@@ -276,6 +280,10 @@ for (vid, path) in enumerate(model_list):
         elif args.cleanser == 'Strip':
             from other_cleansers import strip
             suspicious_indices = strip.cleanser(poisoned_set, clean_set, model, args)
+        elif args.cleanser == 'SentiNet':
+            from other_cleansers import sentinet
+            suspicious_indices = sentinet.cleanser(args, model, defense_fpr=0.05, N=100)
+            # suspicious_indices = sentinet.cleanser(args, model, defense_fpr=None, N=100)
         else:
             raise NotImplementedError('Unimplemented Cleanser')
 

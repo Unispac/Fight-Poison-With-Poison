@@ -91,11 +91,14 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x, return_hidden=False):
+    def forward(self, x, return_hidden=False, return_activation=False):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
+        activation1 = out
         out = self.layer2(out)
+        activation2 = out
         out = self.layer3(out)
+        activation3 = out
         out = self.layer4(out)
         out = self.avgpool(out)
         hidden = out.view(out.size(0), -1)
@@ -103,9 +106,62 @@ class ResNet(nn.Module):
 
         if return_hidden:
             return out, hidden
+        elif return_activation: # for NAD
+            return out, activation1, activation2, activation3
         else:
             return out
 
+    def get_layer(self, x, layer_output):
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.layer1(out)
+        activation1 = out
+        out = self.layer2(out)
+        activation2 = out
+        out = self.layer3(out)
+        activation3 = out
+        out = self.layer4(out)
+        out = self.avgpool(out)
+        if layer_output == 'avgpool':
+            return out
+        else:
+            raise NotImplementedError("`layer_output` must be 'avgpool'!")
+        hidden = out.view(out.size(0), -1)
+        out = self.linear(hidden)
+        
+    def freeze_feature(self):
+        for name, para in self.named_parameters():
+            if name.count('linear') == 0: # non-linear layer
+                para.requires_grad = False
+
+    def unfreeze_feature(self):
+        for name, para in self.named_parameters():
+            para.requires_grad = True
+
+    def freeze_fc(self):
+        for name, para in self.named_parameters():
+            if name.count('linear') > 0: # linear layer
+                para.requires_grad = False
+
+    def unfreeze_fc(self):
+        for name, para in self.named_parameters():
+            if name.count('linear') > 0: # linear layer
+                para.requires_grad = True
+
+    def freeze_before_last_block(self):
+        for name, para in self.named_parameters():
+            para.requires_grad = False
+
+        self.linear.weight.requires_grad =True
+        self.linear.bias.requires_grad = True
+
+        last_block = self.layer3[-1]
+        for name, para in last_block.named_parameters():
+            para.requires_grad = True
+
+    def unfreeze(self):
+        for name, para in self.named_parameters():
+            para.requires_grad = True
+    
     """
     def freeze_none_bn(self, root=None):
         if root is None:
@@ -145,6 +201,8 @@ class ResNet(nn.Module):
             else:
                 for param in m.parameters():
                     param.requires_grad = True"""
+
+
 
 
 class ResNet_narrow(nn.Module):

@@ -176,6 +176,9 @@ trigger_transform = transforms.Compose([
 poison_set_dir = supervisor.get_poison_set_dir(args)
 poison_set_img_dir = os.path.join(poison_set_dir, 'data')
 
+if os.path.exists(poison_set_dir):
+    print(f"Poisoned set directory '{poison_set_dir}' to be created is not empty! Exiting...")
+    exit()
 if not os.path.exists(poison_set_dir):
     os.mkdir(poison_set_dir)
 if not os.path.exists(poison_set_img_dir):
@@ -186,7 +189,7 @@ if not os.path.exists(poison_set_img_dir):
 if args.poison_type in ['badnet', 'blend', 'clean_label', 'refool',
                         'adaptive', 'adaptive_blend', 'adaptive_patch',
                         'SIG', 'TaCT', 'WaNet', 'SleeperAgent', 'none',
-                        'badnet_all_to_all']:
+                        'badnet_all_to_all', 'trojan']:
 
     trigger_name = args.trigger
     trigger_path = os.path.join(config.triggers_dir, trigger_name)
@@ -228,6 +231,13 @@ if args.poison_type in ['badnet', 'blend', 'clean_label', 'refool',
         poison_generator = badnet_all_to_all.poison_generator(img_size=img_size, dataset=train_set,
                                                    poison_rate=args.poison_rate, trigger=trigger,
                                                    path=poison_set_img_dir, num_classes=num_classes)
+
+    elif args.poison_type == 'trojan':
+
+        from poison_tool_box import trojan
+        poison_generator = trojan.poison_generator(img_size=img_size, dataset=train_set,
+                                                 poison_rate=args.poison_rate, trigger_mark=trigger, trigger_mask=trigger_mask,
+                                                 path=poison_set_img_dir, target_class=config.target_class[args.dataset])
 
     elif args.poison_type == 'blend':
 
