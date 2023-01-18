@@ -17,6 +17,7 @@ data/imagenette2/*
 !data/imagenette2/.dummy
 data/VOCdevkit/*
 !data/VOCdevkit/.dummy
+data/*.tar
 
 models/*
 !models/.dummy

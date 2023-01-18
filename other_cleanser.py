@@ -282,7 +282,8 @@ for (vid, path) in enumerate(model_list):
             suspicious_indices = strip.cleanser(poisoned_set, clean_set, model, args)
         elif args.cleanser == 'SentiNet':
             from other_cleansers import sentinet
-            suspicious_indices = sentinet.cleanser(args, model, defense_fpr=0.1, N=100)
+            suspicious_indices = sentinet.cleanser(args, model, defense_fpr=0.05, N=100)
+            # suspicious_indices = sentinet.cleanser(args, model, defense_fpr=None, N=100)
         else:
             raise NotImplementedError('Unimplemented Cleanser')
 

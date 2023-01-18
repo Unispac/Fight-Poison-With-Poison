@@ -39,7 +39,14 @@ class poison_generator():
         self.num_img = len(dataset)
 
         # load reflection images
-        reflection_data_dir = "data/VOCdevkit/VOC2012/JPEGImages/" # please replace this with path to your desired reflection set            
+        reflection_data_dir = "data/VOCdevkit/VOC2012/JPEGImages/" # please replace this with path to your desired reflection set
+        if not os.path.exists(reflection_data_dir):
+            print(f"Reflection images data {reflection_data_dir} not exist! Please first download them by running the following script at 'data/':")
+            print("```")
+            print("wget http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar")
+            print("tar -xvf VOCtrainval_11-May-2012.tar")
+            print("```")
+            exit()
         reflection_image_path = os.listdir(reflection_data_dir)
         self.reflection_images = [read_image(os.path.join(reflection_data_dir,img_path)) for img_path in reflection_image_path[:200]]
         self.AddTriggerMixin = AddTriggerMixin(

@@ -10,6 +10,7 @@ from utils import supervisor
 from torchvision import transforms
 import math
 from scipy.optimize import minimize
+import time
 
 class SentiNet():
     """
@@ -18,7 +19,7 @@ class SentiNet():
     
     name: str = 'sentinet'
 
-    def __init__(self, args, model, defense_fpr: float = 0.05, N: int = 100):
+    def __init__(self, args, model, defense_fpr: float = None, N: int = 100):
         self.args = args
         
         # Only support localized attacks
@@ -53,6 +54,7 @@ class SentiNet():
 
     def cleanse(self):
         args = self.args
+        start_time = time.perf_counter()
         
         # Poisoned train set
         poison_set_dir, poisoned_set_loader, poison_indices, _ = unpack_poisoned_train_set(args, shuffle=False, batch_size=1)
@@ -91,9 +93,9 @@ class SentiNet():
         
         
         # First estimate the decision boundary 
-        if os.path.exists(os.path.join(poison_set_dir, 'SentiNet_est_avgconf')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_est_fooled')):
-            est_avgconf = torch.load(os.path.join(poison_set_dir, 'SentiNet_est_avgconf'))
-            est_fooled = torch.load(os.path.join(poison_set_dir, 'SentiNet_est_fooled'))
+        if os.path.exists(os.path.join(poison_set_dir, f'SentiNet_est_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_est_fooled_seed={args.seed}')):
+            est_avgconf = torch.load(os.path.join(poison_set_dir, f'SentiNet_est_avgconf_seed={args.seed}'))
+            est_fooled = torch.load(os.path.join(poison_set_dir, f'SentiNet_est_fooled_seed={args.seed}'))
         else:
             est_fooled = []
             est_avgconf = []
@@ -137,7 +139,7 @@ class SentiNet():
                 est_avgconf.append(avgconf.item())
                 
             # plt.scatter(est_avgconf, est_fooled, marker='o', color='blue', s=5, alpha=1.0)
-            # save_path = 'assets/SentiNet_cleanser_est_%s.png' % (supervisor.get_dir_core(args))
+            # save_path = 'assets/SentiNet_cleanser_est_%s.png' % (supervisor.get_dir_core(args, include_model_name=True))
             # plt.xlabel("AvgConf")
             # plt.ylabel("#Fooled")
             # plt.xlim([0, 1])
@@ -147,8 +149,8 @@ class SentiNet():
             # print("Saved figure at {}".format(save_path))
             # plt.clf()
             
-            torch.save(est_avgconf, os.path.join(poison_set_dir, 'SentiNet_est_avgconf'))
-            torch.save(est_fooled, os.path.join(poison_set_dir, 'SentiNet_est_fooled'))
+            torch.save(est_avgconf, os.path.join(poison_set_dir, f'SentiNet_est_avgconf_seed={args.seed}'))
+            torch.save(est_fooled, os.path.join(poison_set_dir, f'SentiNet_est_fooled_seed={args.seed}'))
         
         
         # Select the maximum marginal points by bins
@@ -223,7 +225,7 @@ class SentiNet():
         plt.plot(x, y, 'g', linewidth=3, label='fitted')
         plt.plot(x, y_thr, 'g', linestyle='dashed', linewidth=3, label='threshold')
 
-        save_path = 'assets/SentiNet_cleanser_est_%s.png' % (supervisor.get_dir_core(args))
+        save_path = 'assets/SentiNet_cleanser_est_%s.png' % (supervisor.get_dir_core(args, include_model_name=True))
         plt.xlabel("AvgConf")
         plt.ylabel("#Fooled")
         plt.xlim([0, 1])
@@ -236,12 +238,12 @@ class SentiNet():
         
         
         # Inspect the poisoned set
-        if os.path.exists(os.path.join(poison_set_dir, 'SentiNet_clean_avgconf')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_clean_fooled')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_poison_avgconf')) and os.path.exists(os.path.join(poison_set_dir, 'SentiNet_poison_fooled')):
+        if os.path.exists(os.path.join(poison_set_dir, f'SentiNet_clean_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_clean_fooled_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_poison_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_poison_fooled_seed={args.seed}')):
         # if False:
-            clean_avgconf = torch.load(os.path.join(poison_set_dir, 'SentiNet_clean_avgconf'))
-            clean_fooled = torch.load(os.path.join(poison_set_dir, 'SentiNet_clean_fooled'))
-            poison_avgconf = torch.load(os.path.join(poison_set_dir, 'SentiNet_poison_avgconf'))
-            poison_fooled = torch.load(os.path.join(poison_set_dir, 'SentiNet_poison_fooled'))
+            clean_avgconf = torch.load(os.path.join(poison_set_dir, f'SentiNet_clean_avgconf_seed={args.seed}'))
+            clean_fooled = torch.load(os.path.join(poison_set_dir, f'SentiNet_clean_fooled_seed={args.seed}'))
+            poison_avgconf = torch.load(os.path.join(poison_set_dir, f'SentiNet_poison_avgconf_seed={args.seed}'))
+            poison_fooled = torch.load(os.path.join(poison_set_dir, f'SentiNet_poison_fooled_seed={args.seed}'))
         else:
             clean_fooled = []
             clean_avgconf = []
@@ -362,10 +364,10 @@ class SentiNet():
                     avgconf /= len(clean_loader.dataset)
                     poison_fooled.append(fooled.item())
                     poison_avgconf.append(avgconf.item())
-            torch.save(clean_avgconf, os.path.join(poison_set_dir, 'SentiNet_clean_avgconf'))
-            torch.save(clean_fooled, os.path.join(poison_set_dir, 'SentiNet_clean_fooled'))
-            torch.save(poison_avgconf, os.path.join(poison_set_dir, 'SentiNet_poison_avgconf'))
-            torch.save(poison_fooled, os.path.join(poison_set_dir, 'SentiNet_poison_fooled'))
+            torch.save(clean_avgconf, os.path.join(poison_set_dir, f'SentiNet_clean_avgconf_seed={args.seed}'))
+            torch.save(clean_fooled, os.path.join(poison_set_dir, f'SentiNet_clean_fooled_seed={args.seed}'))
+            torch.save(poison_avgconf, os.path.join(poison_set_dir, f'SentiNet_poison_avgconf_seed={args.seed}'))
+            torch.save(poison_fooled, os.path.join(poison_set_dir, f'SentiNet_poison_fooled_seed={args.seed}'))
 
         plt.scatter(clean_avgconf, clean_fooled, marker='o', color='blue', s=5, alpha=1.0)
         plt.scatter(poison_avgconf, poison_fooled, marker='^', s=8, color='red', alpha=0.7)
@@ -373,7 +375,7 @@ class SentiNet():
         # y = poly_reg_model.intercept_ + poly_reg_model.coef_[0] * x + poly_reg_model.coef_[1] * x ** 2
         plt.plot(x, y, 'g', linewidth=3, label='fitted')
         plt.plot(x, y_thr, 'g', linestyle='dashed', linewidth=3, label='threshold')
-        save_path = 'assets/SentiNet_cleanser_%s.png' % (supervisor.get_dir_core(args))
+        save_path = 'assets/SentiNet_cleanser_%s.png' % (supervisor.get_dir_core(args, include_model_name=True))
         plt.xlabel("AvgConf")
         plt.ylabel("#Fooled")
         plt.xlim([0, 1])
@@ -404,10 +406,20 @@ class SentiNet():
             if y1 < fit_func(x1): d1 = -d1
             all_d[i] = d1
         
+        # If a `defense_fpr` is explicitly specified, use it as the false positive rate to set the threshold, instead of the precomputed `d_thr`
+        if self.defense_fpr is not None and args.poison_type != 'none':
+            print("FPR is set to:", self.defense_fpr)
+            clean_d = all_d[clean_indices]
+            idx = math.ceil(self.defense_fpr * len(clean_d))
+            d_thr = torch.sort(clean_d, descending=True)[0][idx] - 1e-8
         
         suspicious_indices = (all_d > d_thr).nonzero().reshape(-1)
         # suspicious_indices = (all_fooled > thr_func(all_avgconf)).nonzero().reshape(-1)
-        print(suspicious_indices)
+        # print(suspicious_indices)
+        
+        end_time = time.perf_counter()
+        elapsed_time = end_time - start_time
+        print("Elapsed time: {:.2f}s\n".format(elapsed_time))
         
         return suspicious_indices
 
