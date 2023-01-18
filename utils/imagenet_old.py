@@ -25,7 +25,8 @@ test_set_labels = '/shadowdata/xiangyu/imagenet_256/val_labels'
 #'/shadowdata/xiangyu/imagenet_256/ILSVRC2012_validation_ground_truth.txt'
 #'data/imagenet/ILSVRC2012_validation_ground_truth.txt'
 
-
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
 
 
 transform_resize = transforms.Compose([
@@ -33,19 +34,20 @@ transform_resize = transforms.Compose([
             transforms.ToTensor(),
 ])
 
-normalizer = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
 
-
-to_tensor_and_normalizer = transforms.Compose([
+resized_normalizer = transforms.Compose([
+            transforms.Resize(size=[256, 256]),
             transforms.ToTensor(),
-            normalizer,
+            normalize,
+])
+
+normalizer = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
 ])
 
 to_tensor = transforms.Compose([transforms.ToTensor(),
 ])
-
-
 
 transform_no_aug = transforms.Compose([
             transforms.CenterCrop(224),
@@ -161,11 +163,10 @@ class imagenet_dataset(Dataset):
         img_path = self.img_id_to_path[idx]
         label = self.img_labels[idx]
 
-        img = transform_resize(Image.open(img_path).convert("RGB")) # 256 x 256, tensor
+        img = resized_normalizer(Image.open(img_path).convert("RGB")) # 256 x 256
 
         if self.poison_transform is not None: # appled to test set for testing ASR
-            img, label = self.poison_transform(img, label)
-
+            img = self.poison_transform(img)
 
         if self.scale_for_ct: # for confusion training, we scale samples to 64 x 64 to speedup detection
             img = scale_for_confusion_training(img)
@@ -175,11 +176,7 @@ class imagenet_dataset(Dataset):
             else:  # for test set: center crop to 224 x 224
                 img = transform_no_aug(img)
 
-        img = normalizer(img)
-
-
         return img, label
-
 
 
 def get_poison_transform_for_imagenet(poison_type):
@@ -187,22 +184,81 @@ def get_poison_transform_for_imagenet(poison_type):
     trigger_path = 'triggers/%s' % triggers[poison_type]
 
     if poison_type == 'badnet':
-        trigger = to_tensor(Image.open(trigger_path).convert("RGB"))
+        trigger = normalizer(Image.open(trigger_path).convert("RGB"))
         return badnet_transform(trigger, target_class=target_class)
-
     elif poison_type == 'trojan':
         raise NotImplementedError('%s is not implemented on ImageNet' % poison_type)
-
     elif poison_type == 'blend':
-        trigger = transform_resize(Image.open(trigger_path).convert("RGB"))
+        trigger = resized_normalizer(Image.open(trigger_path).convert("RGB"))
         return blend_transform(trigger, target_class=target_class)
-
-    elif poison_type == 'none':
-        return none_transform_batch()
-
     else:
         raise NotImplementedError('%s is not implemented on ImageNet' % poison_type)
 
+
+def get_poison_transform_for_imagenet_no_normalize(poison_type):
+
+    transform_to_tensor = transforms.Compose([
+            transforms.ToTensor()
+    ])
+
+    transform_resize = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize(size=[256, 256]),
+    ])
+
+    trigger_path = 'triggers/%s' % triggers[poison_type]
+
+    if poison_type == 'badnet':
+        trigger = transform_to_tensor(Image.open(trigger_path).convert("RGB"))
+        return badnet_transform(trigger, target_class=target_class)
+    elif poison_type == 'trojan':
+        raise NotImplementedError('%s is not implemented on ImageNet' % poison_type)
+    elif poison_type == 'blend':
+        trigger = transform_resize(Image.open(trigger_path).convert("RGB"))
+        return blend_transform(trigger, target_class=target_class)
+    elif poison_type == 'none':
+        return none_transform_batch()
+    else:
+        raise NotImplementedError('%s is not implemented on ImageNet' % poison_type)
+
+
+
+
+def get_batch_poison_transform_for_imagenet(poison_type, scale_for_ct=False):
+
+    resized_224_normalizer = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize(size=[224, 224]),
+        normalize,
+    ])
+
+    resized_64_normalizer = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize(size=[64, 64]),
+        normalize,
+    ])
+
+    img_size = 64 if scale_for_ct else 224
+
+    trigger_path = 'triggers/%s' % triggers[poison_type]
+
+    if poison_type == 'badnet':
+        trigger = normalizer(Image.open(trigger_path).convert("RGB")).cuda()
+        return badnet_transform_batch(trigger, target_class=target_class, img_size=img_size)
+    elif poison_type == 'trojan':
+        raise NotImplementedError('%s is not implemented on ImageNet' % poison_type)
+    elif poison_type == 'blend':
+
+        if scale_for_ct:
+            trigger = resized_64_normalizer(Image.open(trigger_path).convert("RGB")).cuda()
+        else:
+            trigger = resized_224_normalizer(Image.open(trigger_path).convert("RGB")).cuda()
+
+        return blend_transform_batch(trigger, target_class=target_class, img_size=img_size)
+    elif poison_type == 'none':
+        return none_transform_batch()
+    else:
+        raise NotImplementedError('%s is not implemented on ImageNet' % poison_type)
 
 
 class badnet_transform():
@@ -216,14 +272,13 @@ class badnet_transform():
 
     def transform(self, data, label):
         # transform clean samples to poison samples
+        posx = self.img_size - self.dx
+        posy = self.img_size - self.dy
 
-        upper_pos = 16
-        lower_pos = 240
-
-        data[:, upper_pos:upper_pos+self.dx, upper_pos:upper_pos+self.dy] = self.trigger
-        data[:, upper_pos:upper_pos+self.dx, lower_pos-self.dy:lower_pos] = self.trigger
-        data[:, lower_pos-self.dx:lower_pos, upper_pos:upper_pos+self.dy] = self.trigger
-        data[:, lower_pos-self.dx:lower_pos, lower_pos-self.dy:lower_pos] = self.trigger
+        data[:,:self.dx,:self.dy] = self.trigger
+        data[:,:self.dx,posy:] = self.trigger
+        data[:,posx:,:self.dy] = self.trigger
+        data[:,posx:,posy:] = self.trigger
 
         return data, self.target_class
 
@@ -239,6 +294,40 @@ class blend_transform():
         data = (1 - self.alpha) * data + self.alpha * self.trigger
         return data, self.target_class
 
+
+
+
+class badnet_transform_batch():
+
+    def __init__(self, trigger, target_class = 0, img_size = 224):
+        self.img_size = img_size
+        self.trigger = trigger
+        self.target_class = target_class # by default : target_class = 0
+        # shape of the patch trigger
+        _, self.dx, self.dy = trigger.shape
+
+    def transform(self, data, labels):
+        # transform clean samples to poison samples
+        data, labels = data.clone(), labels.clone()
+        posx = self.img_size - self.dx
+        posy = self.img_size - self.dy
+        data[:, :, posx:,posy:] = self.trigger
+        labels[:] = self.target_class
+        return data, labels
+
+
+class blend_transform_batch():
+    def __init__(self, trigger, target_class = 0, alpha=0.2, img_size = 224):
+        self.img_size = img_size
+        self.trigger = trigger
+        self.target_class = target_class  # by default : target_class = 0
+        self.alpha = alpha
+
+    def transform(self, data, labels):
+        data, labels = data.clone(), labels.clone()
+        data = (1 - self.alpha) * data + self.alpha * self.trigger
+        labels[:] = self.target_class
+        return data, labels
 
 
 class none_transform_batch():

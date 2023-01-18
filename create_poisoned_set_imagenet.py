@@ -17,12 +17,13 @@ parser.add_argument('-poison_rate', type=float,  required=False,
 args = parser.parse_args()
 args.dataset = 'imagenet'
 args.alpha= 0.2
-args.trigger = imagenet.triggers[args.poison_type]
 tools.setup_seed(0)
 
-if args.poison_type not in ['badnet', 'trojan', 'blend']:
+if args.poison_type not in ['none', 'badnet', 'trojan', 'blend']:
     raise NotImplementedError('%s is not implemented on ImageNet' % args.poison_type)
 
+if args.poison_type == 'none':
+    args.poison_rate = 0
 
 if not os.path.exists(os.path.join('poisoned_train_set', 'imagenet')):
     os.mkdir(os.path.join('poisoned_train_set', 'imagenet'))
@@ -48,7 +49,7 @@ poison_indices.sort() # increasing order
 
 
 train_set_dir = '/shadowdata/xiangyu/imagenet_256/train'
-#train_set_dir = './data/imagenet/train'
+
 classes, class_to_idx, idx_to_class = imagenet.find_classes(train_set_dir)
 num_imgs, img_id_to_path, img_labels = imagenet.assign_img_identifier(train_set_dir, classes)
 
@@ -56,11 +57,12 @@ transform_to_tensor = transforms.Compose([
     transforms.ToTensor(),
 ])
 
-poison_transform = imagenet.get_poison_transform_for_imagenet_no_normalize(args.poison_type)
+poison_transform = imagenet.get_poison_transform_for_imagenet(args.poison_type)
 
 
 cnt = 0
 tot = len(poison_indices)
+print('# poison samples = %d' % tot)
 for pid in poison_indices:
     cnt+=1
     ori_img = transform_to_tensor(Image.open( os.path.join(train_set_dir, img_id_to_path[pid]) ).convert("RGB"))
@@ -73,7 +75,6 @@ for pid in poison_indices:
     dst_path = os.path.join(poison_imgs_dir, img_id_to_path[pid])
     save_image(poison_img, dst_path)
     print('save [%d/%d]: %s' % (cnt,tot, dst_path))
-
 
 
 

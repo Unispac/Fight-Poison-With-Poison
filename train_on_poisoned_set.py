@@ -164,11 +164,11 @@ elif args.dataset == 'imagenet':
     num_classes = 1000
     arch = config.arch[args.dataset]
     momentum = 0.9
-    weight_decay = 5e-5
-    epochs = 60
-    milestones = torch.tensor([20, 40])
-    learning_rate = 0.5
-    batch_size = 768
+    weight_decay = 1e-4
+    epochs = 90
+    milestones = torch.tensor([30, 60])
+    learning_rate = 0.1
+    batch_size = 256
 
 elif args.dataset == 'ember':
 
@@ -188,7 +188,7 @@ else:
 
 
 if args.dataset == 'imagenet':
-    kwargs = {'num_workers': 12, 'pin_memory': True}
+    kwargs = {'num_workers': 32, 'pin_memory': True}
 else:
     kwargs = {'num_workers': 4, 'pin_memory': True}
 
@@ -222,22 +222,38 @@ elif args.dataset == 'imagenet':
 
     poison_indices = torch.load(poison_indices_path)
 
-    root_dir = './data/imagenet/'
+    root_dir = '/shadowdata/xiangyu/imagenet_256/'
+    #'./data/imagenet/'
     #'/shadowdata/xiangyu/imagenet_256/'
     #train_set_dir = './data/imagenet/train'
     #test_set_dir = './data/imagenet/val'
     train_set_dir = os.path.join(root_dir, 'train')
     test_set_dir = os.path.join(root_dir, 'val')
 
-    from utils import imagenet_ffcv
+    from utils import imagenet
+    #imagenet_ffcv
+    poisoned_set = imagenet.imagenet_dataset(directory=train_set_dir, poison_directory=poisoned_set_img_dir,
+                                             poison_indices = poison_indices, target_class=imagenet.target_class,
+                                             num_classes=1000)
+
+    poisoned_set_loader = torch.utils.data.DataLoader(
+        poisoned_set,
+        batch_size=batch_size, shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
+
+    """
+    (self, directory, shift=False, aug=True,
+                 poison_directory=None, poison_indices=None,
+                 label_file=None, target_class = None, num_classes=1000, scale_for_ct=False)
+    """
 
 
-    poisoned_set = imagenet_ffcv.imagenet_dataset(directory=train_set_dir, shift=False,
+    """
+    poisoned_set = imagenet.imagenet_dataset(directory=train_set_dir, shift=False,
                  poison_directory=poisoned_set_img_dir, poison_indices=poison_indices, target_class=imagenet.target_class,
                  label_file=None, num_classes=1000)
 
     poisoned_set_loader = imagenet_ffcv.get_ffcv_loader(dataset=poisoned_set, nick_name='poison_%s' % args.poison_type,
-                                                        batch_size=batch_size, aug=True)
+                                                        batch_size=batch_size, aug=True)"""
 
 else:
     poison_set_dir = os.path.join('poisoned_train_set', 'ember', args.ember_options)
@@ -275,17 +291,27 @@ if args.dataset != 'ember' and args.dataset != 'imagenet':
 
 elif args.dataset == 'imagenet':
 
+    poison_transform = imagenet.get_poison_transform_for_imagenet(args.poison_type)
+
     test_set = imagenet.imagenet_dataset(directory=test_set_dir, shift=False, aug=False,
                  label_file=imagenet.test_set_labels, num_classes=1000)
+    test_set_backdoor = imagenet.imagenet_dataset(directory=test_set_dir, shift=False, aug=False,
+                 label_file=imagenet.test_set_labels, num_classes=1000, poison_transform=poison_transform)
 
     test_split_meta_dir = os.path.join('clean_set', args.dataset, 'test_split')
     test_indices = torch.load(os.path.join(test_split_meta_dir, 'test_indices'))
+
     test_set = torch.utils.data.Subset(test_set, test_indices)
     test_set_loader = torch.utils.data.DataLoader(
         test_set,
         batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
-    poison_transform = imagenet.get_batch_poison_transform_for_imagenet(args.poison_type)
+    test_set_backdoor = torch.utils.data.Subset(test_set_backdoor, test_indices)
+    test_set_backdoor_loader = torch.utils.data.DataLoader(
+        test_set_backdoor,
+        batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
+
+
 
 else:
     normalizer = poisoned_set.normal
@@ -309,6 +335,42 @@ else:
         batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
 
+"""
+from torchvision.models import resnet18, ResNet18_Weights
+model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+model = nn.DataParallel(model).cuda()
+model.eval()
+
+
+with torch.no_grad():
+
+    correct = 0
+    tot = 0
+    for imgs, labels in tqdm(test_set_loader):
+        imgs = imgs.cuda()
+        output = model(imgs)
+        preds = torch.argmax(output, dim=1).detach().cpu()
+        tot += len(labels)
+        correct += (preds == labels).sum()
+    print('test set accuracy = %d/%d = %f' % (correct, tot, correct / tot))
+
+    correct = 0
+    tot = 0
+    for imgs, labels in tqdm(poisoned_set_loader):
+        imgs = imgs.cuda()
+        output = model(imgs)
+        preds = torch.argmax(output, dim=1).detach().cpu()
+        tot += len(labels)
+        correct += (preds == labels).sum()
+    print('training set accuracy = %d/%d = %f' % (correct, tot, correct/tot))
+
+
+exit(0)"""
+
+
+
+
+
 
 # Train Code
 
@@ -329,8 +391,7 @@ if args.dataset != 'ember':
         print(f"Model '{supervisor.get_model_dir(args)}' already exists!")
 
     if args.dataset == 'imagenet':
-        criterion = nn.CrossEntropyLoss(label_smoothing=0.1).cuda()
-        print('<label_smoothing : 0.1>')
+        criterion = nn.CrossEntropyLoss().cuda()
     else:
         criterion = nn.CrossEntropyLoss().cuda()
 else:
@@ -367,6 +428,10 @@ for epoch in range(1, epochs+1):  # train backdoored base model
     preds = []
     labels = []
     for data, target in tqdm(poisoned_set_loader):
+
+        data = data.cuda(non_blocking=True)
+        target = target.cuda(non_blocking=True)
+
         data, target = data.cuda(), target.cuda()
         optimizer.zero_grad(set_to_none=True)
 
@@ -384,6 +449,7 @@ for epoch in range(1, epochs+1):  # train backdoored base model
     scheduler.step()
 
     # Test
+    """
     if epoch % 20 == 0:
         if args.dataset != 'ember':
             tools.test(model=model, test_loader=test_set_loader, poison_test=True,
@@ -392,13 +458,13 @@ for epoch in range(1, epochs+1):  # train backdoored base model
         else:
             tools.test_ember(model=model, test_loader=test_set_loader,
                             backdoor_test_loader=backdoor_test_set_loader)
-            torch.save(model.module.state_dict(), model_path)
+            torch.save(model.module.state_dict(), model_path)"""
 
     if args.dataset != 'ember':
         if True: #epoch % 5 == 0:
             if args.dataset == 'imagenet':
                 tools.test_imagenet(model=model, test_loader=test_set_loader,
-                                 poison_transform=poison_transform)
+                                    test_backdoor_loader=test_set_backdoor_loader)
                 torch.save(model.module.state_dict(), supervisor.get_model_dir(args))
             else:
                 tools.test(model=model, test_loader=test_set_loader, poison_test=True,

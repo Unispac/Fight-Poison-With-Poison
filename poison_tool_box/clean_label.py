@@ -42,7 +42,7 @@ class poison_generator():
         random.shuffle(all_other_indices)
         num_target = len(all_target_indices)
         num_poison = int(self.num_img * self.poison_rate)
-        assert num_poison < num_target
+        #assert num_poison < num_target
         
 
         poison_indices = all_target_indices[:num_poison]
