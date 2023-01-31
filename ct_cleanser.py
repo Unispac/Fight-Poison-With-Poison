@@ -199,7 +199,7 @@ def iterative_poison_distillation(inspection_set, clean_set, params, args, debug
 
 
 distilled_samples_indices, median_sample_indices, model = iterative_poison_distillation(inspection_set,
-                                                clean_set, params, args, debug_packet, start_iter=5)
+                                                clean_set, params, args, debug_packet, start_iter=0)
 
 """
 arch = params['arch']

@@ -219,14 +219,11 @@ def test(model, test_loader, poison_test = False, poison_transform=None, num_cla
 
 
 
-def test_imagenet(model, test_loader, poison_transform=None):
+def test_imagenet(model, test_loader, test_backdoor_loader=None):
 
     model.eval()
-
     clean_top1 = 0
     clean_top5 = 0
-    adv_top1 = 0
-    adv_top5 = 0
     tot = 0
 
     with torch.no_grad():
@@ -243,23 +240,39 @@ def test_imagenet(model, test_loader, poison_transform=None):
                 if target[i] in clean_pred[i]:
                     clean_top5 += 1
 
-            if poison_transform is not None:
-                adv_data, adv_target = poison_transform.transform(data, target)
-                adv_output = model(adv_data)
-                _, adv_pred = torch.topk(adv_output, 5, dim=1)
-                for i in range(this_batch_size):
-                    if adv_pred[i][0] == adv_target[i]:
-                        adv_top1 += 1
-                    if adv_target[i] in adv_pred[i]:
-                        adv_top5 += 1
-
             tot += this_batch_size
 
     print('<clean accuracy> top1: %d/%d = %f; top5: %d/%d = %f' % (clean_top1,tot,clean_top1/tot,
                                                                    clean_top5,tot,clean_top5/tot))
 
-    if poison_transform is not None:
-        print('<asr> top1: %d/%d = %f; top5: %d/%d = %f' % (adv_top1, tot, adv_top1 / tot,
+    if test_backdoor_loader is None: return
+
+    model.eval()
+    adv_top1 = 0
+    adv_top5 = 0
+    tot = 0
+
+    with torch.no_grad():
+
+        with torch.no_grad():
+            for data, target in tqdm(test_backdoor_loader):
+
+                data, target = data.cuda(), target.cuda()
+                adv_output = model(data)
+                _, adv_pred = torch.topk(adv_output, 5, dim=1)
+
+                this_batch_size = len(target)
+
+
+                for i in range(this_batch_size):
+                    if adv_pred[i][0] == target[i]:
+                        adv_top1 += 1
+                    if target[i] in adv_pred[i]:
+                        adv_top5 += 1
+
+                tot += this_batch_size
+
+    print('<asr> top1: %d/%d = %f; top5: %d/%d = %f' % (adv_top1, tot, adv_top1 / tot,
                                                                        adv_top5, tot, adv_top5 / tot))
 
 
