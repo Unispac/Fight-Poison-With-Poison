@@ -222,14 +222,14 @@ if args.poison_type in ['badnet', 'blend', 'clean_label', 'refool',
 
         from poison_tool_box import badnet
         poison_generator = badnet.poison_generator(img_size=img_size, dataset=train_set,
-                                                   poison_rate=args.poison_rate, trigger=trigger,
+                                                   poison_rate=args.poison_rate, trigger_mark=trigger, trigger_mask=trigger_mask,
                                                    path=poison_set_img_dir, target_class=config.target_class[args.dataset])
 
     elif args.poison_type == 'badnet_all_to_all':
 
         from poison_tool_box import badnet_all_to_all
         poison_generator = badnet_all_to_all.poison_generator(img_size=img_size, dataset=train_set,
-                                                   poison_rate=args.poison_rate, trigger=trigger,
+                                                   poison_rate=args.poison_rate, trigger_mark=trigger, trigger_mask=trigger_mask,
                                                    path=poison_set_img_dir, num_classes=num_classes)
 
     elif args.poison_type == 'trojan':

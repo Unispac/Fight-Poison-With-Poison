@@ -167,7 +167,7 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
 
         if trigger_name != 'none': # none for SIG
             trigger_path = os.path.join(config.triggers_dir, trigger_name)
-            print('trigger : ', trigger_path)
+            # print('trigger : ', trigger_path)
             trigger = Image.open(trigger_path).convert("RGB")
 
             trigger_mask_path = os.path.join(config.triggers_dir, 'mask_%s' % trigger_name)
@@ -181,18 +181,18 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
                 trigger_mask = torch.logical_or(torch.logical_or(trigger_map[0] > 0, trigger_map[1] > 0), trigger_map[2] > 0).float()
 
             trigger = trigger_transform(trigger).cuda()
-            print('trigger_shape: ', trigger.shape)
+            # print('trigger_shape: ', trigger.shape)
             trigger_mask = trigger_mask.cuda()
 
 
 
         if poison_type == 'badnet':
             from poison_tool_box import badnet
-            poison_transform = badnet.poison_transform(img_size=img_size, trigger=trigger, target_class=target_class)
+            poison_transform = badnet.poison_transform(img_size=img_size, trigger_mark=trigger, trigger_mask=trigger_mask, target_class=target_class)
         
         elif poison_type == 'badnet_all_to_all':
             from poison_tool_box import badnet_all_to_all
-            poison_transform = badnet_all_to_all.poison_transform(img_size=img_size, trigger=trigger, num_classes = num_classes)
+            poison_transform = badnet_all_to_all.poison_transform(img_size=img_size, trigger_mark=trigger, trigger_mask=trigger_mask, num_classes = num_classes)
 
         elif poison_type == 'trojan':
             from poison_tool_box import trojan

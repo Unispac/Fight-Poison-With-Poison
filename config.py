@@ -1,4 +1,4 @@
-from utils import resnet, vgg, mobilenetv2, ember_nn, gtsrb_cnn
+from utils import resnet, vgg, mobilenetv2, ember_nn, gtsrb_cnn, wresnet
 from utils import supervisor
 from utils import tools
 import torch
@@ -29,7 +29,7 @@ trigger_default = {
     'adaptive_patch': 'none',
     'clean_label' : 'badnet_patch4_dup_32.png',
     'basic' : 'badnet_patch_32.png',
-    'badnet' : 'badnet_patch.png',
+    'badnet' : 'badnet_patch_32.png',
     'blend' : 'hellokitty_32.png',
     'refool': 'none',
     'TaCT' : 'trojan_square_32.png',
@@ -39,7 +39,7 @@ trigger_default = {
     'ISSBA': 'none',
     'SleeperAgent': 'none',
     'none' : 'none',
-    'badnet_all_to_all' : 'badnet_patch.png',
+    'badnet_all_to_all' : 'badnet_patch_32.png',
     'trojannn': 'none',
     'trojan': 'trojan_square_32.png',
 }
@@ -52,8 +52,8 @@ arch = {
     'imagenette': resnet.ResNet18,
     'ember': ember_nn.EmberNN,
     'imagenet' : resnet.ResNet18,
-    'abl':  resnet.ResNet18,
-    #'abl':  wresnet.WideResNet
+    # 'abl':  resnet.ResNet18,
+    'abl':  wresnet.WideResNet,
 }
 
 

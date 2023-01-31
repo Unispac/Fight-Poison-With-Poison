@@ -162,4 +162,4 @@ if args.poison_type == 'TaCT' or args.poison_type == 'SleeperAgent':
 else:
     source_classes = None
 
-tools.test(model=model, test_loader=test_set_loader, poison_test=True, poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes)
+tools.test(model=model, test_loader=test_set_loader, poison_test=True, poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes, all_to_all=('all_to_all' in args.poison_type))
