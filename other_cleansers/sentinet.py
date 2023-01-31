@@ -7,6 +7,7 @@ import config
 import matplotlib.pyplot as plt
 from utils.tools import unpack_poisoned_train_set
 from utils import supervisor
+from utils.gradcam import GradCAM, GradCAMpp
 from torchvision import transforms
 import math
 from scipy.optimize import minimize
@@ -23,8 +24,8 @@ class SentiNet():
         self.args = args
         
         # Only support localized attacks
-        support_list = ['none', 'adaptive_patch', 'badnet', 'trojan', 'badnet_all_to_all', 'dynamic', 'TaCT']
-        assert args.poison_type in support_list
+        # support_list = ['none', 'adaptive_patch', 'badnet', 'trojan', 'badnet_all_to_all', 'dynamic', 'TaCT']
+        # assert args.poison_type in support_list
         assert args.dataset in ['cifar10', 'gtsrb']
 
         self.defense_fpr = defense_fpr
@@ -93,7 +94,8 @@ class SentiNet():
         
         
         # First estimate the decision boundary 
-        if os.path.exists(os.path.join(poison_set_dir, f'SentiNet_est_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_est_fooled_seed={args.seed}')):
+        # if os.path.exists(os.path.join(poison_set_dir, f'SentiNet_est_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_est_fooled_seed={args.seed}')):
+        if False:
             est_avgconf = torch.load(os.path.join(poison_set_dir, f'SentiNet_est_avgconf_seed={args.seed}'))
             est_fooled = torch.load(os.path.join(poison_set_dir, f'SentiNet_est_fooled_seed={args.seed}'))
         else:
@@ -105,25 +107,50 @@ class SentiNet():
                 
                 fooled_num = 0
                 avgconf = 0
-                # simulate GradCAM map with a randomized central square area for clean inputs
-                from random import random
-                from numpy.random import normal
-                if args.dataset == 'gtsrb':
-                    scale = random() * 4 + 2
-                elif args.dataset == 'cifar10':
-                    scale = random() * 4 + 2
-                else: raise NotImplementedError()
-                # scale = torch.normal(mean=4.0, std=0.5, size=(1,)).clamp(2, 6).item()
-                # scale = 6
+                
+                # # simulate GradCAM map with a randomized central square area for clean inputs
+                # from random import random
+                # from numpy.random import normal
+                # if args.dataset == 'gtsrb':
+                #     scale = random() * 4 + 2
+                # elif args.dataset == 'cifar10':
+                #     scale = random() * 4 + 2
+                # else: raise NotImplementedError()
+                # # scale = torch.normal(mean=4.0, std=0.5, size=(1,)).clamp(2, 6).item()
+                # # scale = 6
+                
+                model_gradcam = GradCAM(dict(type='resnet', arch=self.model.module, layer_name='layer4', input_size=(224, 224)), False)
+                gradcam_mask, _ = model_gradcam(_input[0].unsqueeze(0))
+                gradcam_mask = gradcam_mask.squeeze(0)
+                v, _ = torch.topk(gradcam_mask.reshape(-1), k=int(len(gradcam_mask.reshape(-1)) * 0.15))
+                # gradcam_mask[gradcam_mask > v[-1]] = 1
+                # gradcam_mask[gradcam_mask <= v[-1]] = 0
+                gradcam_mask = (gradcam_mask > v[-1]).repeat([3, 1, 1])
+                
+                # from utils.gradcam_utils import visualize_cam
+                # heatmap, result = visualize_cam(mask.cpu().detach(), self.denormalizer(_input[0]).cpu().detach())
+                # torchvision.utils.save_image(result, "a.png")
+                # torchvision.utils.save_image(self.denormalizer(_input[0]).cpu().detach(), "a0.png")
+                # exit()
+                
+                
                 for c_input, c_label in clean_loader:
                     adv_input = c_input.clone().cuda()
                     inert_input = c_input.clone().cuda()
                     
-                    st_cd = int(self.img_size / scale)
-                    ed_cd = self.img_size - st_cd
+                    # st_cd = int(self.img_size / scale)
+                    # ed_cd = self.img_size - st_cd
                     
-                    adv_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = _input[0, :, st_cd:ed_cd, st_cd:ed_cd]
-                    inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = self.normalizer(torch.rand((inert_input.shape[0], 3, ed_cd - st_cd, ed_cd - st_cd))).cuda()
+                    # adv_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = _input[0, :, st_cd:ed_cd, st_cd:ed_cd]
+                    # inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = self.normalizer(torch.rand((inert_input.shape[0], 3, ed_cd - st_cd, ed_cd - st_cd))).cuda()
+                    
+                    adv_input[:, gradcam_mask] = _input[:, gradcam_mask]
+                    inert_input[:, gradcam_mask] = self.normalizer(torch.rand_like(inert_input))[:, gradcam_mask].cuda()
+                    
+                    # torchvision.utils.save_image(self.denormalizer(adv_input), "a.png")
+                    # torchvision.utils.save_image(self.denormalizer(inert_input), "a0.png")
+                    # exit()
+                    
                     
                     adv_output = self.model(adv_input)
                     adv_pred = torch.argmax(adv_output, dim=1)
@@ -238,8 +265,8 @@ class SentiNet():
         
         
         # Inspect the poisoned set
-        if os.path.exists(os.path.join(poison_set_dir, f'SentiNet_clean_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_clean_fooled_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_poison_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_poison_fooled_seed={args.seed}')):
-        # if False:
+        # if os.path.exists(os.path.join(poison_set_dir, f'SentiNet_clean_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_clean_fooled_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_poison_avgconf_seed={args.seed}')) and os.path.exists(os.path.join(poison_set_dir, f'SentiNet_poison_fooled_seed={args.seed}')):
+        if False:
             clean_avgconf = torch.load(os.path.join(poison_set_dir, f'SentiNet_clean_avgconf_seed={args.seed}'))
             clean_fooled = torch.load(os.path.join(poison_set_dir, f'SentiNet_clean_fooled_seed={args.seed}'))
             poison_avgconf = torch.load(os.path.join(poison_set_dir, f'SentiNet_poison_avgconf_seed={args.seed}'))
@@ -252,6 +279,7 @@ class SentiNet():
             
             for i, (_input, _label) in enumerate(tqdm(poisoned_set_loader)):
                 # if i > 200: break
+                # if i % 100 == 0: print("Iter {}/{}".format(i, len(poisoned_set_loader)))
                 
                 _input, _label = _input.cuda(), _label.cuda()
                 
@@ -259,16 +287,26 @@ class SentiNet():
                 if i not in poison_indices:
                     fooled_num = 0
                     avgconf = 0
-                    # simulate GradCAM map with a randomized central square area for clean inputs
-                    from random import random
-                    from numpy.random import normal
-                    if args.dataset == 'gtsrb':
-                        scale = random() * 4 + 2
-                    elif args.dataset == 'cifar10':
-                        scale = random() * 4 + 2
-                    else: raise NotImplementedError()
-                    # scale = torch.normal(mean=4.0, std=0.5, size=(1,)).clamp(2, 6).item()
-                    # scale = 6
+                    
+                    # # simulate GradCAM map with a randomized central square area for clean inputs
+                    # from random import random
+                    # from numpy.random import normal
+                    # if args.dataset == 'gtsrb':
+                    #     scale = random() * 4 + 2
+                    # elif args.dataset == 'cifar10':
+                    #     scale = random() * 4 + 2
+                    # else: raise NotImplementedError()
+                    # # scale = torch.normal(mean=4.0, std=0.5, size=(1,)).clamp(2, 6).item()
+                    # # scale = 6
+                    
+                    model_gradcam = GradCAM(dict(type='resnet', arch=self.model.module, layer_name='layer4', input_size=(224, 224)), False)
+                    gradcam_mask, _ = model_gradcam(_input[0].unsqueeze(0))
+                    gradcam_mask = gradcam_mask.squeeze(0)
+                    v, _ = torch.topk(gradcam_mask.reshape(-1), k=int(len(gradcam_mask.reshape(-1)) * 0.15))
+                    # gradcam_mask[gradcam_mask > v[-1]] = 1
+                    # gradcam_mask[gradcam_mask <= v[-1]] = 0
+                    gradcam_mask = (gradcam_mask > v[-1]).repeat([3, 1, 1])
+                    
                     for c_input, c_label in clean_loader:
                         adv_input = c_input.clone().cuda()
                         inert_input = c_input.clone().cuda()
@@ -280,14 +318,17 @@ class SentiNet():
                         # adv_input[:, :, posx:posx+dx, posy:posy+dy] = _input[:, :, posx:posx+dx, posy:posy+dy]
                         # inert_input[:, :, posx:posx+dx, posy:posy+dy] = self.normalizer(torch.rand((3, dx, dy))).cuda()
                         
-                        st_cd = int(self.img_size / scale)
-                        ed_cd = self.img_size - st_cd
+                        # st_cd = int(self.img_size / scale)
+                        # ed_cd = self.img_size - st_cd
                         
-                        adv_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = _input[0, :, st_cd:ed_cd, st_cd:ed_cd]
-                        # inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = self.normalizer(torch.rand((3, ed_cd - st_cd, ed_cd - st_cd))).cuda()
-                        inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = self.normalizer(torch.rand((inert_input.shape[0], 3, ed_cd - st_cd, ed_cd - st_cd))).cuda()
-                        # inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = torch.normal(mean=0.5, std=1.0, size=(3, ed_cd - st_cd, ed_cd - st_cd)).clamp(0, 1).cuda()
-                        # inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = self.random_img[:, st_cd:ed_cd, st_cd:ed_cd]
+                        # adv_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = _input[0, :, st_cd:ed_cd, st_cd:ed_cd]
+                        # # inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = self.normalizer(torch.rand((3, ed_cd - st_cd, ed_cd - st_cd))).cuda()
+                        # inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = self.normalizer(torch.rand((inert_input.shape[0], 3, ed_cd - st_cd, ed_cd - st_cd))).cuda()
+                        # # inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = torch.normal(mean=0.5, std=1.0, size=(3, ed_cd - st_cd, ed_cd - st_cd)).clamp(0, 1).cuda()
+                        # # inert_input[:, :, st_cd:ed_cd, st_cd:ed_cd] = self.random_img[:, st_cd:ed_cd, st_cd:ed_cd]
+                        
+                        adv_input[:, gradcam_mask] = _input[:, gradcam_mask]
+                        inert_input[:, gradcam_mask] = self.normalizer(torch.rand_like(inert_input))[:, gradcam_mask].cuda()
                         
                         adv_output = self.model(adv_input)
                         adv_pred = torch.argmax(adv_output, dim=1)
@@ -346,7 +387,9 @@ class SentiNet():
                             inert_input[:, trigger_mask] = self.normalizer(torch.rand(inert_input.shape))[:, trigger_mask].cuda()
                             # self.debug_save_img(inert_input[1])
                             # exit()
-                        else: raise NotImplementedError()
+                        else:
+                            adv_input[:, gradcam_mask] = poison_input[:, gradcam_mask]
+                            inert_input[:, gradcam_mask] = self.normalizer(torch.rand_like(inert_input))[:, gradcam_mask].cuda()
                         
                         adv_output = self.model(adv_input)
                         adv_pred = torch.argmax(adv_output, dim=1)
@@ -409,7 +452,7 @@ class SentiNet():
         # If a `defense_fpr` is explicitly specified, use it as the false positive rate to set the threshold, instead of the precomputed `d_thr`
         if self.defense_fpr is not None and args.poison_type != 'none':
             print("FPR is set to:", self.defense_fpr)
-            clean_d = all_d[clean_indices]
+            clean_d = all_d[clean_indices[:len(clean_avgconf)]]
             idx = math.ceil(self.defense_fpr * len(clean_d))
             d_thr = torch.sort(clean_d, descending=True)[0][idx] - 1e-8
         
