@@ -31,7 +31,7 @@ parser.add_argument('-model_path', required=False, default=None)
 
 parser.add_argument('-no_normalize', default=False, action='store_true')
 parser.add_argument('-cleanser', type=str, required=True,
-                    choices=['SCAn', 'AC', 'SS', 'Strip', 'CT', 'SPECTRE', 'SentiNet']) # scan, activation clustering, spectral signature
+                    choices=['SCAn', 'AC', 'SS', 'Strip', 'CT', 'SPECTRE', 'SentiNet', 'Frequency']) # scan, activation clustering, spectral signature
 parser.add_argument('-devices', type=str, default='0')
 parser.add_argument('-log', default=False, action='store_true')
 parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
@@ -146,11 +146,13 @@ best_path = None
 
 for (vid, path) in enumerate(model_list):
 
-    ckpt = torch.load(path)
-
     # base model for poison detection
     model = arch(num_classes=num_classes)
-    model.load_state_dict(ckpt)
+    if os.path.exists(path):
+        ckpt = torch.load(path)
+        model.load_state_dict(ckpt)
+    else:
+        print(f"Model {path} not exists!")
     model = nn.DataParallel(model)
     model = model.cuda()
     model.eval()
@@ -284,6 +286,9 @@ for (vid, path) in enumerate(model_list):
             from other_cleansers import sentinet
             suspicious_indices = sentinet.cleanser(args, model, defense_fpr=0.05, N=100)
             # suspicious_indices = sentinet.cleanser(args, model, defense_fpr=None, N=100)
+        elif args.cleanser == 'Frequency':
+            from other_cleansers import frequency
+            suspicious_indices = frequency.cleanser(args)
         else:
             raise NotImplementedError('Unimplemented Cleanser')
 

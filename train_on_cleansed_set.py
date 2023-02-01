@@ -32,7 +32,7 @@ parser.add_argument('-trigger', type=str, required=False,
 parser.add_argument('-no_aug', default=False, action='store_true')
 parser.add_argument('-no_normalize', default=False, action='store_true')
 parser.add_argument('-devices', type=str, default='0')
-parser.add_argument('-cleanser', type=str, choices=['SCAn','AC','SS', 'CT', 'SPECTRE', 'Strip', 'SentiNet'], default='CT')
+parser.add_argument('-cleanser', type=str, choices=['SCAn','AC','SS', 'CT', 'SPECTRE', 'Strip', 'SentiNet', 'Frequency'], default='CT')
 parser.add_argument('-log', default=False, action='store_true')
 parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
 
