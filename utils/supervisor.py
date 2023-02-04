@@ -213,8 +213,16 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
                                                             target_class=target_class)
         
         elif poison_type == 'WaNet':
+            s = 0.5
+            k = 4
+            grid_rescale = 1
+            path = os.path.join(get_poison_set_dir(args), 'identity_grid')
+            identity_grid = torch.load(path)
+            path = os.path.join(get_poison_set_dir(args), 'noise_grid')
+            noise_grid = torch.load(path)
+            
             from poison_tool_box import WaNet
-            poison_transform = WaNet.poison_transform(img_size=img_size, target_class=target_class)
+            poison_transform = WaNet.poison_transform(img_size=img_size, denormalizer=denormalizer, identity_grid=identity_grid, noise_grid=noise_grid, s=s, k=k, grid_rescale=grid_rescale, normalizer=normalizer, target_class=target_class)
         
         elif poison_type == 'adaptive_blend':
 

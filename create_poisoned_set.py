@@ -264,11 +264,32 @@ if args.poison_type in ['badnet', 'blend', 'clean_label', 'refool',
                                                  cover_classes=config.cover_classes)
 
     elif args.poison_type == 'WaNet':
+        # Prepare grid
+        s = 0.5
+        k = 4
+        grid_rescale = 1
+        ins = torch.rand(1, 2, k, k) * 2 - 1
+        ins = ins / torch.mean(torch.abs(ins))
+        noise_grid = (
+            torch.nn.functional.upsample(ins, size=img_size, mode="bicubic", align_corners=True)
+            .permute(0, 2, 3, 1)
+        )
+        array1d = torch.linspace(-1, 1, steps=img_size)
+        x, y = torch.meshgrid(array1d, array1d)
+        identity_grid = torch.stack((y, x), 2)[None, ...]
+        
+        path = os.path.join(poison_set_dir, 'identity_grid')
+        torch.save(identity_grid, path)
+        path = os.path.join(poison_set_dir, 'noise_grid')
+        torch.save(noise_grid, path)
 
         from poison_tool_box import WaNet
         poison_generator = WaNet.poison_generator(img_size=img_size, dataset=train_set,
                                                  poison_rate=args.poison_rate, cover_rate=args.cover_rate,
-                                                 path=poison_set_img_dir, target_class=config.target_class[args.dataset])
+                                                 path=poison_set_img_dir,
+                                                 identity_grid=identity_grid, noise_grid=noise_grid,
+                                                 s=s, k=k, grid_rescale=grid_rescale, 
+                                                 target_class=config.target_class[args.dataset])
 
     elif args.poison_type == 'adaptive':
 
