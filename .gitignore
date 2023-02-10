@@ -22,6 +22,7 @@ data/*.tar
 models/*
 !models/.dummy
 !models/ISSBA_cifar10.pth
+!models/6_CNN_CIF1R10.h5py
 
 poisoned_train_set/*
 !poisoned_train_set/.dummy
