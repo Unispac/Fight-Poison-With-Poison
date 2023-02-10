@@ -1,3 +1,0 @@
-nohup python -u train_on_cleansed_set.py -dataset ember -ember_options unconstrained -devices 9 > logs/ember/train_on_cleansed_unconstrained.out 2>&1 &
-nohup python -u train_on_cleansed_set.py -dataset ember -ember_options constrained -devices 8 > logs/ember/train_on_cleansed_constrained.out 2>&1 &
-nohup python -u train_on_cleansed_set.py -dataset ember -ember_options none -devices 7 > logs/ember/train_on_cleansed_none.out 2>&1 &

@@ -1,2 +1,0 @@
-sbatch slurm_scripts/train_on_poison/imagenet_badnet.slurm
-sbatch slurm_scripts/train_on_poison/imagenet_blend.slurm

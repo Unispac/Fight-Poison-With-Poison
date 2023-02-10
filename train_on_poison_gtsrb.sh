@@ -1,8 +1,0 @@
-sbatch slurm_scripts/train_on_poison/gtsrb_adaptive_blend.slurm
-sbatch slurm_scripts/train_on_poison/gtsrb_adaptive_patch.slurm
-sbatch slurm_scripts/train_on_poison/gtsrb_badnet.slurm
-sbatch slurm_scripts/train_on_poison/gtsrb_blend.slurm
-sbatch slurm_scripts/train_on_poison/gtsrb_dynamic.slurm
-sbatch slurm_scripts/train_on_poison/gtsrb_SIG.slurm
-sbatch slurm_scripts/train_on_poison/gtsrb_TaCT.slurm
-sbatch slurm_scripts/train_on_poison/gtsrb_none.slurm
