@@ -74,7 +74,7 @@ class SentiNet(BackdoorDefense):
             fooled_num = 0
             avgconf = 0
             
-            model_gradcam = GradCAM(dict(type='resnet', arch=self.model.module, layer_name='layer4', input_size=(224, 224)), False)
+            model_gradcam = GradCAM(dict(type='resnet', arch=self.model, layer_name='layer4', input_size=(224, 224)), False)
             gradcam_mask, _ = model_gradcam(_input[0].unsqueeze(0))
             gradcam_mask = gradcam_mask.squeeze(0)
             v, _ = torch.topk(gradcam_mask.reshape(-1), k=int(len(gradcam_mask.reshape(-1)) * 0.15))
@@ -202,13 +202,13 @@ class SentiNet(BackdoorDefense):
         poison_avgconf = []
         
         for i, (_input, _label) in enumerate(loader):
-            if i > 30: break
+            # if i > 30: break
             # For the clean input
             _input, _label = _input.cuda(), _label.cuda()
             fooled_num = 0
             avgconf = 0
             
-            model_gradcam = GradCAM(dict(type='resnet', arch=self.model.module, layer_name='layer4', input_size=(224, 224)), False)
+            model_gradcam = GradCAM(dict(type='resnet', arch=self.model, layer_name='layer4', input_size=(224, 224)), False)
             gradcam_mask, _ = model_gradcam(_input[0].unsqueeze(0))
             gradcam_mask = gradcam_mask.squeeze(0)
             v, _ = torch.topk(gradcam_mask.reshape(-1), k=int(len(gradcam_mask.reshape(-1)) * 0.15))
@@ -342,12 +342,11 @@ class SentiNet(BackdoorDefense):
         y_true = torch.zeros(len(poison_fooled) + len(clean_fooled))
         y_pred = torch.zeros(len(poison_fooled) + len(clean_fooled))
         y_true[len(clean_avgconf):] = 1
-        y_pred = (all_d > d_thr).nonzero().reshape(-1)
-        print(y_pred, y_pred.shape)
+        y_pred = (all_d > d_thr).int().reshape(-1)
         
         print("f1_score:", metrics.f1_score(y_true, y_pred))
         print("precision_score:", metrics.precision_score(y_true, y_pred))
-        print("recall_score:", metrics.recall_score(y_true, y_pred))
+        print("recall_score (TPR):", metrics.recall_score(y_true, y_pred))
         print("accuracy_score:", metrics.accuracy_score(y_true, y_pred))
     
     
