@@ -128,7 +128,7 @@ class spectral_visualizer:
 
 if args.dataset == 'cifar10':
 
-    num_classes = 11
+    num_classes = 10
     if args.no_normalize:
         data_transform = transforms.Compose([
                 transforms.ToTensor(),
