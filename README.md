@@ -1,6 +1,6 @@
 # Confusion Training
 
-Official repostory for [Fight Poison with Poison: Detecting Backdoor Poison Samples via Decoupling Benign Correlations](https://arxiv.org/abs/2205.13616).
+Official repostory for [Towards A Proactive ML Approach for Detecting Backdoor Poison Samples](https://arxiv.org/abs/2205.13616).
 
 ![](assets/overview.png)
 
