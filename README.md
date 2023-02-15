@@ -13,6 +13,7 @@ Adversaries can embed backdoors in deep learning models by introducing backdoor 
 
 See [poison_tool_box/](poison_tool_box/).
 
+- `none`: no attack
 - `badnet`: basic attack with badnet patch trigger, http://arxiv.org/abs/1708.06733
 - `blend`: basic attack with a single blending trigger, https://arxiv.org/abs/1712.05526
 - `trojan`: basic attack with the patch trigger from trojanNN, https://docs.lib.purdue.edu/cgi/viewcontent.cgi?article=2782&context=cstech
@@ -25,7 +26,11 @@ See [poison_tool_box/](poison_tool_box/).
 - `adaptive_blend`: Adap-Blend attack with a single blending trigger, https://openreview.net/forum?id=_wSHsgrVali
 - `adaptive_patch`: Adap-Patch attack with `k`=4 different patch triggers, https://openreview.net/forum?id=_wSHsgrVali
 
+In our paper, we also evaluated some other adaptive/ablation attacks, but not yet included in the current repository:
 
+- `badnet_all_to_all`: All-to-all badnet attack (class i -> class i + 1), http://arxiv.org/abs/1708.06733
+- `rotation`: Backdoor attack via rotation transformation, https://arxiv.org/abs/2207.10825
+- `constrained` & `unconstrained`: backdoor attacks against malware classifiers on Ember, https://www.usenix.org/conference/usenixsecurity21/presentation/severi
 
 ## Defenses
 
@@ -61,40 +66,40 @@ Visualize the latent space of backdoor models. See [visualize.py](visualize.py).
 
 ## Quick Start
 
-For example, to launch CT to defend against the Adaptive-Blend attack:
+For example, to launch CT to defend against the Blend attack:
 ```bash
 # Create a clean set
 python create_clean_set.py -dataset=cifar10
 
 # Create a poisoned training set
-python create_poisoned_set.py -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.003 -alpha 0.15
+python create_poisoned_set.py -dataset=cifar10 -poison_type=blend -poison_rate=0.003
 
 # Train on the poisoned training set
-python train_on_poisoned_set.py -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.003 -alpha 0.15 -test_alpha 0.2
+python train_on_poisoned_set.py -dataset=cifar10 -poison_type=blend -poison_rate=0.003
 
 # Test the backdoor model
-python test_model.py -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.003 -alpha 0.15 -test_alpha 0.2
+python test_model.py -dataset=cifar10 -poison_type=blend -poison_rate=0.003
 
 # Visualize
 ## $METHOD = ['pca', 'tsne', 'oracle']
-python visualize.py -method=$METHOD -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.003 -alpha 0.15 -test_alpha 0.2
+python visualize.py -method=$METHOD -dataset=cifar10 -poison_type=blend -poison_rate=0.003
 
 # **Cleanse with Confusion Training ('CT')**
-python ct_cleanser.py -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.003 -alpha 0.15 -test_alpha 0.2 -debug_info
+python ct_cleanser.py -dataset=cifar10 -poison_type=blend -poison_rate=0.003 -debug_info
 
 # Cleanse with other cleansers
 ## Except for 'Frequency', you need to train poisoned backdoor models first.
 ## $CLEANSER = ['SCAn', 'AC', 'SS', 'Strip', 'SPECTRE', 'SentiNet', 'Frequency']
-python other_cleanser.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.003 -alpha 0.15 -test_alpha 0.2
+python other_cleanser.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=blend -poison_rate=0.003
 
 # Retrain on cleansed set
 ## $CLEANSER = ['CT', 'SCAn', 'AC', 'SS', 'Strip', 'SPECTRE', 'SentiNet']
-python train_on_cleansed_set.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.003 -alpha 0.15 -test_alpha 0.2
+python train_on_cleansed_set.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=blend -poison_rate=0.003
 
 # Other defenses
 ## $DEFENSE = ['ABL', 'NC', 'NAD', 'STRIP', 'FP', 'SentiNet']
 ## Except for 'ABL', you need to train poisoned backdoor models first.
-python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.003 -alpha 0.15 -test_alpha 0.2
+python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=blend -poison_rate=0.003
 ```
 
 **Notice**:
@@ -133,15 +138,14 @@ python create_poisoned_set.py -dataset gtsrb -poison_type TaCT -poison_rate 0.00
 python create_poisoned_set.py -dataset gtsrb -poison_type adaptive_blend -poison_rate 0.003 -cover_rate 0.003 -alpha 0.15
 python create_poisoned_set.py -dataset gtsrb -poison_type adaptive_patch -poison_rate 0.005 -cover_rate 0.01
 ```
+(And remember to specify the same corresponding suffixes of each attack when you try to run other training/defending scripts for it.)
 
 You can also:
-- specify details on the trigger (for `blend`, `clean_label`, `adaptive_blend` and `TaCT` attacks) via
+- for certain attacks (`blend` and `adaptive_blend`), specify details on the trigger via
     - `-alpha=$ALPHA`, the opacity of the trigger.
     - `-trigger=$TRIGGER_NAME`, where `$TRIGGER_NAME` is the name of a 32x32 trigger mark image in [triggers/](triggers). If another image named `mask_$TRIGGER_NAME` also exists in [triggers/](triggers), it will be used as the trigger mask. Otherwise by default, all black pixels of the trigger mark are not applied.
-- train a vanilla model via
-    ```bash
-    python train_vanilla.py
-    ```
+    - `-test_alpha=$TEST_ALPHA`, the opacity of the trigger during testing (e.g. most scripts for `adaptive_blend` attacks should include the option `-test_alpha=0.2`)
+- to launch defenses when there is no attack, simply use `-poison_type=none -poison_rate=0` options
 - test a trained model via
     ```bash
     python test_model.py -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.006 -alpha=0.15 -test_alpha=0.2
