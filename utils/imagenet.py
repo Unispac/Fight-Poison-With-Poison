@@ -164,7 +164,7 @@ class imagenet_dataset(Dataset):
         img = transform_resize(Image.open(img_path).convert("RGB")) # 256 x 256, tensor
 
         if self.poison_transform is not None: # appled to test set for testing ASR
-            img, label = self.poison_transform(img, label)
+            img, label = self.poison_transform.transform(img, label)
 
 
         if self.scale_for_ct: # for confusion training, we scale samples to 64 x 64 to speedup detection
