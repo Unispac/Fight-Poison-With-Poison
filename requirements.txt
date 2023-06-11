@@ -1,16 +1,16 @@
-h5py==3.8.0
-higher==0.2.1
-imageio @ file:///home/conda/feedstock_root/build_artifacts/imageio_1669286839712/work
-jenkspy @ file:///home/conda/feedstock_root/build_artifacts/jenkspy_1655666896294/work
-matplotlib @ file:///home/conda/feedstock_root/build_artifacts/matplotlib-suite_1636786672439/work
-numpy @ file:///tmp/abs_653_j00fmm/croots/recipe/numpy_and_numpy_base_1659432701727/work
-opencv-python==4.5.5
-opencv-python-headless==4.7.0.68
-pandas==1.4.4
-scikit-image @ file:///home/conda/feedstock_root/build_artifacts/scikit-image_1667117143644/work
-scikit-learn @ file:///home/conda/feedstock_root/build_artifacts/scikit-learn_1652976692230/work
-scipy @ file:///home/conda/feedstock_root/build_artifacts/scipy_1653073872310/work
-torch==1.12.1
-torchaudio==0.12.1
-torchvision==0.13.1
-tqdm @ file:///home/conda/feedstock_root/build_artifacts/tqdm_1662214488106/work
+# torch==1.12.1
+# torchaudio==0.12.1
+# torchvision==0.13.1
+h5py #==3.8.0
+higher #==0.2.1
+imageio
+jenkspy
+matplotlib
+numpy
+opencv-python #==4.5.5
+opencv-python-headless #==4.7.0.68
+pandas #==1.4.4
+scikit-image
+scikit-learn
+scipy
+tqdm
