@@ -1,6 +1,6 @@
 # Confusion Training
 
-Official repostory for [Towards A Proactive ML Approach for Detecting Backdoor Poison Samples](https://arxiv.org/abs/2205.13616).
+Official repostory for (USENIX 2023) [Towards A Proactive ML Approach for Detecting Backdoor Poison Samples](https://arxiv.org/abs/2205.13616).
 
 ![](assets/overview.png)
 
