@@ -9,148 +9,78 @@ Adversaries can embed backdoors in deep learning models by introducing backdoor 
 2. Second, we suggest a paradigm shift by promoting a **proactive mindset** in which defenders engage proactively with the entire model training and poison detection pipeline, directly enforcing and magnifying distinctive characteristics of the post-attacked model to facilitate poison detection. Based on this, we formulate a unified framework and provide practical insights on designing detection pipelines that are more robust and generalizable. 
 3. Third, we introduce the technique of **Confusion Training (CT)** as a concrete instantiation of our framework. CT applies an additional poisoning attack to the already poisoned dataset, actively **decoupling benign correlation while exposing backdoor patterns to detection**. Empirical evaluations on 4 datasets and 14 types of attacks validate the superiority of CT over 11 baseline defenses.
 
-## Evaluated Attacks
+---
 
-See [poison_tool_box/](poison_tool_box/).
+> This is a brief introduction to get you start with our code. Refer to [misc/reproduce.md](misc/reproduce.md) for more details to reproduce our major results.
 
-- `none`: no attack
-- `badnet`: basic attack with badnet patch trigger, http://arxiv.org/abs/1708.06733
-- `blend`: basic attack with a single blending trigger, https://arxiv.org/abs/1712.05526
-- `trojan`: basic attack with the patch trigger from trojanNN, https://docs.lib.purdue.edu/cgi/viewcontent.cgi?article=2782&context=cstech
-- `clean_label`: http://arxiv.org/abs/1912.02771
-- `dynamic`: http://arxiv.org/abs/2010.08138
-- `SIG`: https://arxiv.org/abs/1902.11237
-- `ISSBA`: invisible backdoor attack with sample-specific triggers, https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf
-- `WaNet`: imperceptible warping-based backdoor attack, http://arxiv.org/abs/2102.10369
-- `TaCT`: source specific attack, https://arxiv.org/abs/1908.00686
-- `adaptive_blend`: Adap-Blend attack with a single blending trigger, https://openreview.net/forum?id=_wSHsgrVali
-- `adaptive_patch`: Adap-Patch attack with `k`=4 different patch triggers, https://openreview.net/forum?id=_wSHsgrVali
+## Hardware
 
-In our paper, we also evaluated some other adaptive/ablation attacks, but not yet included in the current repository:
+Our artifact is compatible with common hardware settings, only specifically requiring NVIDIA GPU support. We recommend a computing node equipped with Intel CPU (≥32 cores) and ≥2 Nvidia A100 GPUs.
 
-- `badnet_all_to_all`: All-to-all badnet attack (class i -> class i + 1), http://arxiv.org/abs/1708.06733
-- `rotation`: Backdoor attack via rotation transformation, https://arxiv.org/abs/2207.10825
-- `constrained` & `unconstrained`: backdoor attacks against malware classifiers on Ember, https://www.usenix.org/conference/usenixsecurity21/presentation/severi
+## Dependency
 
-## Defenses
+Our experiments are conducted with PyTorch 1.12.1, and should be compatible with PyTorch of newer versions. To reproduce our defense, first manually install PyTorch with CUDA, and then install other packages via `pip install -r requirement.txt`.
 
-[ct_cleanser.py]([ct_cleanser.py]) is our implementation for **`CT` (confusion training)** method.
+## TODO before You Start
 
-See [other_cleanses/](other_cleansers/) for other poison samples detectors (cleansers) we evaluated as baselines:
-- `SCAn`: https://arxiv.org/abs/1908.00686
-- `AC`: activation clustering, https://arxiv.org/abs/1811.03728
-- `SS`: spectral signature, https://arxiv.org/abs/1811.00636
-- `SPECTRE`: https://arxiv.org/abs/2104.11315
-- `Strip` (modified as a poison cleanser): http://arxiv.org/abs/1902.06531
-- `SentiNet` (modified as a poison cleanser): https://ieeexplore.ieee.org/abstract/document/9283822
-- `Frequency`: https://openaccess.thecvf.com/content/ICCV2021/html/Zeng_Rethinking_the_Backdoor_Attacks_Triggers_A_Frequency_Perspective_ICCV_2021_paper.html
+- Original CIFAR10 and GTSRB datasets would be automatically downloaded. But Ember and ImageNet must be manually downloaded and set ... [TBD].
+- Before any experiments, first initialize the clean reserved data and validation data using command `python create_clean_set.py -dataset=$DATASET` (where `$DATASET = cifar10, gtsrb, ember, imagenet`).
+- Before launching `clean_label` attack, run [data/cifar10/clean_label/setup.sh](data/cifar10/clean_label/setup.sh).
+- Before launching `dynamic` attack, download pretrained generators `all2one_cifar10_ckpt.pth.tar` and `all2one_gtsrb_ckpt.pth.tar` to [models/](models/) from https://drive.google.com/file/d/1vG44QYPkJjlOvPs7GpCL2MU8iJfOi0ei/view?usp=sharing and https://drive.google.com/file/d/1x01TDPwvSyMlCMDFd8nG05bHeh1jlSyx/view?usp=sharing.
+- `SPECTRE` baseline defense is implemented in Julia. To compare our defense with `SPECTRE`, you must install Julia and install dependencies before running SPECTRE, see [other_cleansers/spectre/README.md](other_cleansers/spectre/README.md) for configuration details.
+- `Frequency` baseline defense is based on Tensorflow. If you would like to reproduce their results, please install Tensorflow (code is tested with Tensorflow 2.8.1 and should be compatible with newer versions) manually, after installing all the dependencies upon.
 
 
-See [other_defenses_tool_box/](other_defenses_tool_box/) for other general types of backdoor defenses (not poison cleansers) we also evaluated:
-- `NC`: Neural Clenase, https://ieeexplore.ieee.org/document/8835365/
-- `FP`: Fine-Pruning, http://arxiv.org/abs/1805.12185
-- `ABL`: Anti-Backdoor Learning, https://arxiv.org/abs/2110.11571
-- `NAD`: Neural Attention Distillation, https://arxiv.org/abs/2101.05930
-- `STRIP`: http://arxiv.org/abs/1902.06531
-- `SentiNet`: https://ieeexplore.ieee.org/abstract/document/9283822
+## A Gentle Start
 
-## Visualization
+To help readers get to know the overall pipeline of our artifact, we first illustrate an example by showing how to launch and defend against BadNet attack on CIFAR10 (corresponding to BadNet lines in Table 1 and Table 2).
 
-Visualize the latent space of backdoor models. See [visualize.py](visualize.py).
+> All our scripts adopt command-line options using `argparse`. 
 
-- `tsne`: 2-dimensional T-SNE
-- `pca`: 2-dimensional PCA
-- `oracle`: fit the poison latent space with a SVM, see https://arxiv.org/abs/2205.13613
-
-
-
-## Quick Start
-
-For example, to launch CT to defend against the Blend attack:
+### **Step 1**: Create a poisoned training set.
 ```bash
-# Create a clean set
-python create_clean_set.py -dataset=cifar10
-
-# Create a poisoned training set
-python create_poisoned_set.py -dataset=cifar10 -poison_type=blend -poison_rate=0.003
-
-# Train on the poisoned training set
-python train_on_poisoned_set.py -dataset=cifar10 -poison_type=blend -poison_rate=0.003
-
-# Test the backdoor model
-python test_model.py -dataset=cifar10 -poison_type=blend -poison_rate=0.003
-
-# Visualize
-## $METHOD = ['pca', 'tsne', 'oracle']
-python visualize.py -method=$METHOD -dataset=cifar10 -poison_type=blend -poison_rate=0.003
-
-# **Cleanse with Confusion Training ('CT')**
-python ct_cleanser.py -dataset=cifar10 -poison_type=blend -poison_rate=0.003 -debug_info
-
-# Cleanse with other cleansers
-## Except for 'Frequency', you need to train poisoned backdoor models first.
-## $CLEANSER = ['SCAn', 'AC', 'SS', 'Strip', 'SPECTRE', 'SentiNet', 'Frequency']
-python other_cleanser.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=blend -poison_rate=0.003
-
-# Retrain on cleansed set
-## $CLEANSER = ['CT', 'SCAn', 'AC', 'SS', 'Strip', 'SPECTRE', 'SentiNet']
-python train_on_cleansed_set.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=blend -poison_rate=0.003
-
-# Other defenses
-## $DEFENSE = ['ABL', 'NC', 'NAD', 'STRIP', 'FP', 'SentiNet']
-## Except for 'ABL', you need to train poisoned backdoor models first.
-python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=blend -poison_rate=0.003
+python create_poisoned_set.py -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
 ```
 
-**Notice**:
-- `SPECTRE` is implemented in Julia. So you must install Julia and install dependencies before running SPECTRE, see [other_cleansers/spectre/README.md](other_cleansers/spectre/README.md) for configuration details.
-- For `clean_label` attack, run 'data/cifar10/clean_label/setup.sh' before the first time launching it.
-- For `dynamic` attack, download pretrained generators `all2one_cifar10_ckpt.pth.tar` and `all2one_gtsrb_ckpt.pth.tar` to [models/](models/) from https://drive.google.com/file/d/1vG44QYPkJjlOvPs7GpCL2MU8iJfOi0ei/view?usp=sharing and https://drive.google.com/file/d/1x01TDPwvSyMlCMDFd8nG05bHeh1jlSyx/view?usp=sharing before the first time launching it.
-<!-- https://github.com/VinAIResearch/input-aware-backdoor-attack-release before the first time launching it. -->
-
-
-To create the poisoning attacks we evaluate in our papers, run:
+### **Step 2**: Train a backdoored model on this poisoned training set.
 ```bash
-# CIFAR10
-python create_poisoned_set.py -dataset cifar10 -poison_type none
-python create_poisoned_set.py -dataset cifar10 -poison_type badnet -poison_rate 0.003
-python create_poisoned_set.py -dataset cifar10 -poison_type blend -poison_rate 0.003
-python create_poisoned_set.py -dataset cifar10 -poison_type trojan -poison_rate 0.003
-python create_poisoned_set.py -dataset cifar10 -poison_type clean_label -poison_rate 0.003
-python create_poisoned_set.py -dataset cifar10 -poison_type SIG -poison_rate 0.02
-python create_poisoned_set.py -dataset cifar10 -poison_type dynamic -poison_rate 0.003
-python create_poisoned_set.py -dataset cifar10 -poison_type ISSBA -poison_rate 0.02
-python create_poisoned_set.py -dataset cifar10 -poison_type WaNet -poison_rate 0.05 -cover_rate 0.1
-python create_poisoned_set.py -dataset cifar10 -poison_type TaCT -poison_rate 0.003 -cover_rate 0.003
-python create_poisoned_set.py -dataset cifar10 -poison_type adaptive_blend -poison_rate 0.003 -cover_rate 0.003 -alpha 0.15
-python create_poisoned_set.py -dataset cifar10 -poison_type adaptive_patch -poison_rate 0.003 -cover_rate 0.006
-
-
-# GTSRB
-python create_poisoned_set.py -dataset gtsrb -poison_type none
-python create_poisoned_set.py -dataset gtsrb -poison_type badnet -poison_rate 0.01
-python create_poisoned_set.py -dataset gtsrb -poison_type blend -poison_rate 0.01
-python create_poisoned_set.py -dataset gtsrb -poison_type trojan -poison_rate 0.01
-python create_poisoned_set.py -dataset gtsrb -poison_type SIG -poison_rate 0.02
-python create_poisoned_set.py -dataset gtsrb -poison_type dynamic -poison_rate 0.003
-python create_poisoned_set.py -dataset gtsrb -poison_type WaNet -poison_rate 0.05 -cover_rate 0.1
-python create_poisoned_set.py -dataset gtsrb -poison_type TaCT -poison_rate 0.005 -cover_rate 0.005
-python create_poisoned_set.py -dataset gtsrb -poison_type adaptive_blend -poison_rate 0.003 -cover_rate 0.003 -alpha 0.15
-python create_poisoned_set.py -dataset gtsrb -poison_type adaptive_patch -poison_rate 0.005 -cover_rate 0.01
+python train_on_poisoned_set.py -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
 ```
-(And remember to specify the same corresponding suffixes of each attack when you try to run other training/defending scripts for it.)
+The model checkpoint will be automatically saved to [poisoned_train_set/cifar10/badnet_0.003_poison_seed=0/full_base_aug_seed=2333.pt](poisoned_train_set/cifar10/badnet_0.003_poison_seed=0/full_base_aug_seed=2333.pt).
 
-You can also:
-- for certain attacks (`blend` and `adaptive_blend`), specify details on the trigger via
-    - `-alpha=$ALPHA`, the opacity of the trigger.
-    - `-trigger=$TRIGGER_NAME`, where `$TRIGGER_NAME` is the name of a 32x32 trigger mark image in [triggers/](triggers). If another image named `mask_$TRIGGER_NAME` also exists in [triggers/](triggers), it will be used as the trigger mask. Otherwise by default, all black pixels of the trigger mark are not applied.
-    - `-test_alpha=$TEST_ALPHA`, the opacity of the trigger during testing (e.g. most scripts for `adaptive_blend` attacks should include the option `-test_alpha=0.2`)
-- to launch defenses when there is no attack, simply use `-poison_type=none -poison_rate=0` options
-- test a trained model via
-    ```bash
-    python test_model.py -dataset=cifar10 -poison_type=adaptive_blend -poison_rate=0.003 -cover_rate=0.006 -alpha=0.15 -test_alpha=0.2
-    # other options include: -no_aug, -cleanser=$CLEANSER, -model_path=$MODEL_PATH, see our code for details
-    ```
-- enforce a fixed running seed via `-seed=$SEED` option
-- change dataset to GTSRB via `-dataset=gtsrb` option
-- see more configurations in `config.py`
+After training, you may evaluate the trained model's performance (ACC & ASR) via:
+```bash
+python test_model.py -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
+```
+
+You may also visualize the latent space of the backdoor model (like Fig 2) w.r.t. clean and poison samples via:
+
+```bash
+python visualize.py -method=tsne -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
+```
+
+### **Step 3**: Defend against the BadNet attack.
+
+To launch our **confusion training** defense, run script:
+```bash
+# Cleanse the poisoned training set (results in Table 1)
+python ct_cleanser.py -dataset=cifar10 -poison_type=badnet -poison_rate=0.003 -devices=0,1 -debug_info
+
+# Retrain a benign model on the cleansed training set (results in Table 2)
+python train_on_cleansed_set.py -cleanser=CT -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
+```
+
+To launch baseline defenses (poison set cleanser), run script:
+```bash
+# Cleanse the poisoned training set (results in Table 1)
+python other_cleanser.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=badnet -poison_rate=0.003 # $CLEANSER = ['SCAn', 'AC', 'SS', 'Strip', 'SPECTRE', 'SentiNet', 'Frequency']
+
+# Retrain a benign model on the cleansed training set (results in Table 2)
+python train_on_cleansed_set.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
+```
+
+And to launch other baseline defenses (not poison set cleanser), run script:
+```bash
+# (results in Table 2)
+python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=badnet -poison_rate=0.003 # $DEFENSE = ['ABL', 'NC', 'NAD', 'FP']
+```
