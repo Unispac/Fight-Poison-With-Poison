@@ -1,4 +1,3 @@
-```html
 <h1 align='center' style="text-align:center; font-weight:bold; font-size:2.0em;letter-spacing:2.0px;"> Towards A Proactive ML Approach for Detecting Backdoor Poison Samples </h1>
 <p align='center' style="text-align:center;font-size:1.25em;">
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Xiangyu Qi</a>&nbsp;,&nbsp;
@@ -17,7 +16,6 @@ Princeton University<br/>
 </b>
 </p>
 ----------------------------------------------------------------------
-```
 
 
 
