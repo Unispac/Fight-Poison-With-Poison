@@ -3,7 +3,7 @@
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Xiangyu Qi</a>&nbsp;,&nbsp;
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Tinghao Xie</a>&nbsp;,&nbsp;
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Jiachen T. Wang</a>&nbsp;,&nbsp;
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Tong Wu</a>
+    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Tong Wu</a><br>
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Saeed Mahloujifar</a><br/>&nbsp;,&nbsp;
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Prateek Mittal</a>&nbsp;&nbsp; 
     <br/> 
