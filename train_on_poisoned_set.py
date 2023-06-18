@@ -302,7 +302,7 @@ if args.dataset != 'ember':
     else:
         criterion = nn.CrossEntropyLoss().cuda()
 else:
-    model_path = os.path.join('poisoned_train_set', 'ember', args.ember_options, 'backdoored_model.pt')
+    model_path = os.path.join('poisoned_train_set', 'ember', args.ember_options, 'full_base_aug_seed=%d.pt' % args.seed)
     print(f"Will save to '{model_path}'.")
     if os.path.exists(model_path):
         print(f"Model '{model_path}' already exists!")
@@ -330,19 +330,23 @@ for epoch in range(1, epochs+1):  # train backdoored base model
     labels = []
     for data, target in tqdm(poisoned_set_loader):
 
-        data = data.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
+        data = data.cuda()
+        target = target.cuda()
 
         data, target = data.cuda(), target.cuda()
-        optimizer.zero_grad(set_to_none=True)
+        optimizer.zero_grad()
 
-        with autocast():
-            output = model(data)
-            loss = criterion(output, target)
+        #with autocast():
+        output = model(data)
+        loss = criterion(output, target)
 
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        #scaler.scale(loss).backward()
+        #scaler.step(optimizer)
+        #scaler.update()
+
+        loss.backward()
+        optimizer.step()
+
 
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time

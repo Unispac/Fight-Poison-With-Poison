@@ -149,7 +149,7 @@ python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=badn
 
 We consider "constrained" and "unconstrained" versions of the attack. The poison rate is 1% for both attacks. For the constrainted attack, the trigger watermark size is 17, with attack strategy "LargeAbsSHAP x MinPopulation"; for the unconstrained attack, the trigger watermark size is 32, with attack strategy "Combined Feature Value Selector".
 
-After the generation of the poisoned dataset, the constrained and unconstrained versions of the should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. For ease of usage, we also upload the poisoned dataset we generated [here]().
+After the generation of the poisoned dataset, the constrained and unconstrained versions of the should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. For ease of usage, we also upload the poisoned dataset we generated [here](https://drive.google.com/drive/folders/1clwaG8-plDSPTWMjkJ4DTFfFL6PQflAk?usp=sharing).
 
 Example: Run Confusion Training against Ember Unconstrained Attack:
 

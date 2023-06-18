@@ -114,7 +114,7 @@ def iterative_poison_distillation(inspection_set, inspection_set_inverse, clean_
         'kwargs': kwargs,
         'inspection_set_dir': inspection_set_dir,
         'num_classes': num_classes,
-        'arch': ember_nn.EmberNN_narrow,
+        'arch': config.arch['ember'],
         'distillation_ratio': distillation_ratio,
         'batch_size': batch_size,
         'median_sample_rate': 0.1
@@ -135,7 +135,7 @@ def iterative_poison_distillation(inspection_set, inspection_set_inverse, clean_
 
     if start_iter != 0:
         distilled_samples_indices, median_sample_indices = confusion_training.distill(args, params, inspection_set,
-                                   start_iter-1, criterion_no_reduction, dataset_name='ember')
+                                   start_iter-1, criterion_no_reduction, dataset_name='ember', custom_arch=arch)
         distilled_set = torch.utils.data.Subset(inspection_set, distilled_samples_indices)
 
     else:
@@ -205,7 +205,7 @@ def iterative_poison_distillation(inspection_set, inspection_set_inverse, clean_
             worker_init_fn=tools.worker_init, **kwargs)
 
         # confusion_training
-        model = confusion_training.confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
+        model = confusion_training.confusion_train(args, params, inspection_set, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
                                    num_classes, inspection_set_dir, weight_decay, criterion_no_reduction,
                                    momentum, lambs[confusion_iter],
                                    freq_of_each_class, lr, batch_factors[confusion_iter], distillation_iters, dataset_name='ember')
@@ -213,7 +213,7 @@ def iterative_poison_distillation(inspection_set, inspection_set_inverse, clean_
         # distill the inspected set according to the loss values
         distilled_samples_indices, median_sample_indices = confusion_training.distill(args, params, inspection_set,
                                                                                       confusion_iter, criterion_no_reduction,
-                                                                                      dataset_name='ember', final_budget=final_budget)
+                                                                                      dataset_name='ember', final_budget=final_budget, custom_arch=arch)
 
         distilled_set = torch.utils.data.Subset(inspection_set, distilled_samples_indices)
 

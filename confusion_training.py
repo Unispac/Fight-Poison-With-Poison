@@ -240,7 +240,7 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
                            source_classes=debug_packet['source_classes'])
                 elif dataset_name == 'imagenet':
                     tools.test_imagenet(model=model, test_loader=debug_packet['test_set_loader'],
-                                        poison_transform=debug_packet['poison_transform'])
+                                        test_backdoor_loader=debug_packet['test_set_backdoor_loader'])
                 else:
                     tools.test_ember(model=model, test_loader=debug_packet['test_set_loader'],
                                      backdoor_test_loader=debug_packet['backdoor_test_set_loader'])
@@ -257,11 +257,10 @@ def confusion_train(args, params, inspection_set, debug_packet, distilled_set_lo
                     num_classes, inspection_set_dir, weight_decay, criterion_no_reduction,
                     momentum, lamb, freq, lr, batch_factor, distillation_iters, dataset_name = None):
 
-
-    base_model = arch(num_classes = num_classes)
+    base_model = params['arch'](num_classes = num_classes)
     base_model.load_state_dict(
-        torch.load(os.path.join(inspection_set_dir, 'full_base_aug_seed=%d.pt' % (args.seed)))
-    )
+            torch.load(os.path.join(inspection_set_dir, 'full_base_aug_seed=%d.pt' % (args.seed)))
+        )
     base_model = nn.DataParallel(base_model)
     base_model = base_model.cuda()
     base_model.eval()
@@ -295,8 +294,6 @@ def confusion_train(args, params, inspection_set, debug_packet, distilled_set_lo
         data_shift, target_shift = data_shift.cuda(), target_shift.cuda()
 
         if dataset_name != 'ember':
-            target_clean = (target_shift + num_classes - 1) % num_classes
-            s = len(target_clean)
             with torch.no_grad():
                 preds = torch.argmax(base_model(data_shift), dim=1).detach()
                 if (rounder + batch_idx) % num_classes == 0:
@@ -304,7 +301,9 @@ def confusion_train(args, params, inspection_set, debug_packet, distilled_set_lo
                 next_target = (preds + rounder + batch_idx) % num_classes
                 target_confusion = next_target
         else:
-           target_confusion = target_shift
+            with torch.no_grad():
+                target_confusion = ((base_model(data_shift) >= 0.5).detach() + 1) % 2
+                target_confusion = target_confusion.float()
 
         model.train()
 
@@ -367,7 +366,7 @@ def confusion_train(args, params, inspection_set, debug_packet, distilled_set_lo
                            source_classes=debug_packet['source_classes'])
                 elif dataset_name == 'imagenet':
                     tools.test_imagenet(model=model, test_loader=debug_packet['test_set_loader'],
-                                        poison_transform=debug_packet['poison_transform'])
+                                        test_backdoor_loader=debug_packet['test_set_backdoor_loader'])
                 else:
                     tools.test_ember(model=model, test_loader=debug_packet['test_set_loader'],
                                      backdoor_test_loader=debug_packet['backdoor_test_set_loader'])
@@ -406,7 +405,6 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
         Collect loss values for inspected samples.
     """
     loss_array = []
-    confidence_array = []
     correct_instances = []
     gts = []
     model.eval()
@@ -422,15 +420,12 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
             else:
                 preds = (output >= 0.5).float()
 
-            prob = torch.softmax(output, dim=1).cpu().numpy()
-
             batch_loss = criterion_no_reduction(output, target)
 
             this_batch_size = len(target)
 
             for i in range(this_batch_size):
                 loss_array.append(batch_loss[i].item())
-                confidence_array.append(prob[i][target[i].item()])
                 gts.append(int(target[i].item()))
                 if dataset_name != 'ember':
                     if preds[i] == target[i]:

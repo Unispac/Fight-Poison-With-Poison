@@ -80,18 +80,33 @@ clean_set = torch.utils.data.Subset(clean_set, clean_split_indices)
 
 
 if args.debug_info:
+
+    poison_transform = imagenet.get_poison_transform_for_imagenet(args.poison_type)
+
     test_set = imagenet.imagenet_dataset(directory=test_set_dir, shift=False, aug=False,
                                          label_file=imagenet.test_set_labels, num_classes=1000, scale_for_ct=True)
+    test_set_backdoor = imagenet.imagenet_dataset(directory=test_set_dir, shift=False, aug=False,
+                                         label_file=imagenet.test_set_labels, num_classes=1000, scale_for_ct=True,
+                                                  poison_transform=poison_transform)
+
     test_split_meta_dir = os.path.join('clean_set', args.dataset, 'test_split')
     test_split_indices = torch.load(os.path.join(test_split_meta_dir, 'test_indices'))
+
     test_set = torch.utils.data.Subset(test_set, test_split_indices)
     test_set_loader = torch.utils.data.DataLoader(
         test_set,
         batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
-    poison_transform = imagenet.get_batch_poison_transform_for_imagenet(args.poison_type, scale_for_ct=True)
+
+    test_set_backdoor = torch.utils.data.Subset(test_set_backdoor, test_split_indices)
+    test_set_backdoor_loader = torch.utils.data.DataLoader(
+        test_set_backdoor,
+        batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
+
+
     debug_packet = {
         'test_set_loader' : test_set_loader,
-        'poison_transform' : poison_transform
+        'test_set_backdoor_loader': test_set_backdoor_loader
+        #'poison_transform' : poison_transform
     }
 
 
@@ -108,7 +123,7 @@ def iterative_poison_distillation(inspection_set, clean_set, args, start_iter=0)
         'kwargs': kwargs,
         'inspection_set_dir': inspection_set_dir,
         'num_classes': num_classes,
-        'arch': resnet.ResNet18_narrow,
+        'arch': config.arch['imagenet'],
         'distillation_ratio': distillation_ratio,
         'batch_size': batch_size,
         'median_sample_rate': 0.1
@@ -129,7 +144,7 @@ def iterative_poison_distillation(inspection_set, clean_set, args, start_iter=0)
 
     if start_iter != 0:
         distilled_samples_indices, median_sample_indices = confusion_training.distill(args, params, inspection_set,
-                                   start_iter-1, criterion_no_reduction, dataset_name='imagenet')
+                                   start_iter-1, criterion_no_reduction, dataset_name='imagenet', custom_arch=arch)
         distilled_set = torch.utils.data.Subset(inspection_set, distilled_samples_indices)
 
     else:
@@ -189,15 +204,17 @@ def iterative_poison_distillation(inspection_set, clean_set, args, start_iter=0)
             worker_init_fn=tools.worker_init, **kwargs)
 
         # confusion_training
-        model = confusion_training.confusion_train(args, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
+        model = confusion_training.confusion_train(args, params, inspection_set, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
                                    num_classes, inspection_set_dir, weight_decay, criterion_no_reduction,
                                    momentum, lambs[confusion_iter],
                                    freq_of_each_class, lr, batch_factors[confusion_iter], distillation_iters, dataset_name='imagenet')
 
+
+
         # distill the inspected set according to the loss values
         distilled_samples_indices, median_sample_indices = confusion_training.distill(args, params, inspection_set,
                                                                                       confusion_iter, criterion_no_reduction,
-                                                                                      dataset_name='imagenet')
+                                                                                      dataset_name='imagenet', custom_arch=arch)
 
         distilled_set = torch.utils.data.Subset(inspection_set, distilled_samples_indices)
 
@@ -207,6 +224,7 @@ def iterative_poison_distillation(inspection_set, clean_set, args, start_iter=0)
 
 distilled_samples_indices, median_sample_indices, model = iterative_poison_distillation(inspection_set,
                                                 clean_set, args, start_iter=0)
+
 
 
 
