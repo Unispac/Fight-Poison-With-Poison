@@ -4,8 +4,8 @@
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Tinghao Xie</a>&nbsp;,&nbsp;
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Jiachen T. Wang</a>&nbsp;,&nbsp;
     <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Tong Wu</a>&nbsp;,&nbsp;
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Saeed Mahloujifar</a><br/>&nbsp;,&nbsp;
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Prateek Mittal</a>&nbsp;,&nbsp; 
+    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Saeed Mahloujifar</a><br/>
+    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Prateek Mittal</a>&nbsp;&nbsp; 
     <br/> 
 Princeton University<br/> 
 </p>
@@ -13,6 +13,12 @@ Princeton University<br/>
 <p align='center';>
 <b>
 <em>USENIX Security 2023</em> <br>
+</b>
+</p>
+
+<p align='center' style="text-align:center;font-size:2.5 em;">
+<b>
+    <a href="https://arxiv.org/abs/2205.13616" target="_blank" style="text-decoration: none;">arXiv</a>&nbsp;
 </b>
 </p>
 ----------------------------------------------------------------------
