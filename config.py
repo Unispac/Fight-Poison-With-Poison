@@ -11,7 +11,6 @@ triggers_dir = './triggers' # default triggers directory
 target_class = {
     'cifar10' : 0,
     'gtsrb' : 2,
-    'imagenette': 0,
     'imagenet' : 0
 }
 
@@ -48,8 +47,6 @@ arch = {
     ### for base model & poison distillation
     'cifar10': resnet.ResNet18,
     'gtsrb' : resnet.ResNet18,
-    #resnet.ResNet18,
-    'imagenette': resnet.ResNet18,
     'ember': ember_nn.EmberNN,
     'imagenet' : resnet.ResNet18,
     # 'abl':  resnet.ResNet18,
@@ -155,27 +152,6 @@ def get_params(args):
         lambs = [20, 20, 20, 20, 20, 20]
         lrs = [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
         batch_factors = [2, 2, 4, 8, 8, 2] # 2,2,4,8,8,8
-
-    elif args.dataset == 'imagenette':
-
-        num_classes = 10
-
-        data_transform_normalize = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-
-        data_transform_aug = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-
-        distillation_ratio = [1/2, 1/5, 1/25, 1/50, 1/100]
-        momentums = [0.7, 0.7, 0.7, 0.7, 0.7, 0.7]
-        lambs = [20, 20, 20, 40, 30, 5]
-        lrs = [0.001, 0.001, 0.001, 0.01, 0.01, 0.01]
-        batch_factors = [2, 2, 2, 2, 2, 2]
 
     else:
         raise NotImplementedError('<Unimplemented Dataset> %s' % args.dataset)

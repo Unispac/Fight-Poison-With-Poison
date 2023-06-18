@@ -37,15 +37,7 @@ import confusion_training
 tools.setup_seed(args.seed)
 
 if args.trigger is None:
-
-    if args.dataset != 'imagenette':
-        args.trigger = config.trigger_default[args.poison_type]
-
-    else:
-        if args.poison_type == 'badnet':
-            args.trigger = 'badnet_high_res.png'
-        else:
-            raise NotImplementedError('%s not implemented for imagenette' % args.poison_type)
+    args.trigger = config.trigger_default[args.poison_type]
 
 if args.log:
 

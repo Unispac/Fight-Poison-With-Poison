@@ -8,11 +8,6 @@ import random
 import config
 from utils import default_args, tools
 
-"""
-<Four Data Sets>
-GTSRB, CIFAR10, CIFAR100, Imagenette (imagenet subset)
-"""
-
 
 
 
@@ -26,10 +21,6 @@ parser.add_argument('-clean_budget', type=int, default=2000)
 args = parser.parse_args()
 
 tools.setup_seed(0)
-
-
-datasets.ImageNet
-
 
 
 """
@@ -46,6 +37,7 @@ if args.dataset == 'gtsrb':
                                transform=data_transform, download=True)
     img_size = 32
     num_classes = 43
+
 elif args.dataset == 'cifar10':
     data_transform = transforms.Compose([
         transforms.ToTensor()
@@ -53,16 +45,6 @@ elif args.dataset == 'cifar10':
     clean_set = datasets.CIFAR10(os.path.join(data_dir, 'cifar10'), train=False,
                                   download=True, transform=data_transform)
     img_size = 32
-    num_classes = 10
-elif args.dataset == 'imagenette':
-
-    data_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-    ])
-    clean_set = datasets.ImageFolder(os.path.join(os.path.join(data_dir, 'imagenette2'), 'val'), data_transform)
-
-    img_size = 224
     num_classes = 10
 
 elif args.dataset == 'imagenet':

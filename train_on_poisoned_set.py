@@ -43,15 +43,10 @@ from utils import supervisor, tools
 
 
 if args.trigger is None:
-    if args.dataset != 'imagenette' and args.dataset != 'imagenet':
+    if args.dataset != 'imagenet':
         args.trigger = config.trigger_default[args.poison_type]
     elif args.dataset == 'imagenet':
         args.trigger = imagenet.triggers[args.poison_type]
-    else:
-        if args.poison_type == 'badnet':
-            args.trigger = 'badnet_high_res.png'
-        else:
-            raise NotImplementedError('%s not implemented for imagenette' % args.poison_type)
 
 
 all_to_all = False
@@ -101,21 +96,6 @@ elif args.dataset == 'gtsrb':
         transforms.Normalize((0.3337, 0.3064, 0.3171), (0.2672, 0.2564, 0.2629))
     ])
 
-elif args.dataset == 'imagenette':
-
-    data_transform_aug = transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
-    ])
-
-    data_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
-    ])
-
 elif args.dataset == 'imagenet':
     print('[ImageNet]')
 
@@ -146,17 +126,6 @@ elif args.dataset == 'gtsrb':
     epochs = 100
     milestones = torch.tensor([30, 60])
     learning_rate = 0.01
-    batch_size = 128
-
-elif args.dataset == 'imagenette':
-
-    num_classes = 10
-    arch = config.arch[args.dataset]
-    momentum = 0.9
-    weight_decay = 1e-4
-    epochs = 100
-    milestones = torch.tensor([40, 80])
-    learning_rate = 0.1
     batch_size = 128
 
 elif args.dataset == 'imagenet':
@@ -222,16 +191,11 @@ elif args.dataset == 'imagenet':
 
     poison_indices = torch.load(poison_indices_path)
 
-    root_dir = '/shadowdata/xiangyu/imagenet_256/'
-    #'./data/imagenet/'
-    #'/shadowdata/xiangyu/imagenet_256/'
-    #train_set_dir = './data/imagenet/train'
-    #test_set_dir = './data/imagenet/val'
+    root_dir = '/path_to_imagenet/'
     train_set_dir = os.path.join(root_dir, 'train')
     test_set_dir = os.path.join(root_dir, 'val')
 
     from utils import imagenet
-    #imagenet_ffcv
     poisoned_set = imagenet.imagenet_dataset(directory=train_set_dir, poison_directory=poisoned_set_img_dir,
                                              poison_indices = poison_indices, target_class=imagenet.target_class,
                                              num_classes=1000)
@@ -239,21 +203,6 @@ elif args.dataset == 'imagenet':
     poisoned_set_loader = torch.utils.data.DataLoader(
         poisoned_set,
         batch_size=batch_size, shuffle=True, worker_init_fn=tools.worker_init, **kwargs)
-
-    """
-    (self, directory, shift=False, aug=True,
-                 poison_directory=None, poison_indices=None,
-                 label_file=None, target_class = None, num_classes=1000, scale_for_ct=False)
-    """
-
-
-    """
-    poisoned_set = imagenet.imagenet_dataset(directory=train_set_dir, shift=False,
-                 poison_directory=poisoned_set_img_dir, poison_indices=poison_indices, target_class=imagenet.target_class,
-                 label_file=None, num_classes=1000)
-
-    poisoned_set_loader = imagenet_ffcv.get_ffcv_loader(dataset=poisoned_set, nick_name='poison_%s' % args.poison_type,
-                                                        batch_size=batch_size, aug=True)"""
 
 else:
     poison_set_dir = os.path.join('poisoned_train_set', 'ember', args.ember_options)
@@ -311,8 +260,6 @@ elif args.dataset == 'imagenet':
         test_set_backdoor,
         batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
-
-
 else:
     normalizer = poisoned_set.normal
 
@@ -335,55 +282,15 @@ else:
         batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
 
-"""
-from torchvision.models import resnet18, ResNet18_Weights
-model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
-model = nn.DataParallel(model).cuda()
-model.eval()
-
-
-with torch.no_grad():
-
-    correct = 0
-    tot = 0
-    for imgs, labels in tqdm(test_set_loader):
-        imgs = imgs.cuda()
-        output = model(imgs)
-        preds = torch.argmax(output, dim=1).detach().cpu()
-        tot += len(labels)
-        correct += (preds == labels).sum()
-    print('test set accuracy = %d/%d = %f' % (correct, tot, correct / tot))
-
-    correct = 0
-    tot = 0
-    for imgs, labels in tqdm(poisoned_set_loader):
-        imgs = imgs.cuda()
-        output = model(imgs)
-        preds = torch.argmax(output, dim=1).detach().cpu()
-        tot += len(labels)
-        correct += (preds == labels).sum()
-    print('training set accuracy = %d/%d = %f' % (correct, tot, correct/tot))
-
-
-exit(0)"""
-
-
-
-
-
-
 # Train Code
-
 if args.dataset != 'ember':
     model = arch(num_classes=num_classes)
 else:
     model = arch()
 
-
 milestones = milestones.tolist()
 model = nn.DataParallel(model)
 model = model.cuda()
-
 
 if args.dataset != 'ember':
     print(f"Will save to '{supervisor.get_model_dir(args)}'.")
@@ -412,12 +319,6 @@ else:
 import time
 st = time.time()
 
-"""
-if args.dataset == 'imagenet':
-    tools.test_imagenet(model=model, test_loader=test_set_loader,
-                                     poison_transform=poison_transform)
-    print('<time : %f minutes>' % ( (time.time() - st) / 60 ))
-"""
 
 scaler = GradScaler()
 for epoch in range(1, epochs+1):  # train backdoored base model

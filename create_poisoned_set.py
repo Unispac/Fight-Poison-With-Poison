@@ -32,15 +32,11 @@ tools.setup_seed(0)
 
 print('[target class : %d]' % config.target_class[args.dataset])
 
+
 data_dir = config.data_dir  # directory to save standard clean set
 if args.trigger is None:
-    if args.dataset != 'imagenette':
-        args.trigger = config.trigger_default[args.poison_type]
-    else:
-        if args.poison_type == 'badnet':
-            args.trigger = 'badnet_high_res.png'
-        else:
-            raise NotImplementedError('%s not implemented for imagenette' % args.poison_type)
+    args.trigger = config.trigger_default[args.poison_type]
+
 
 if not os.path.exists(os.path.join('poisoned_train_set', args.dataset)):
     os.mkdir(os.path.join('poisoned_train_set', args.dataset))
@@ -91,8 +87,6 @@ if args.poison_type == 'dynamic':
         normalizer = None
         denormalizer = None
 
-    elif args.dataset == 'imagenette':
-        raise  NotImplementedError('imagenette unsupported for dynamic!')
     else:
         raise  NotImplementedError('Undefined Dataset')
 
@@ -126,8 +120,6 @@ elif args.poison_type == 'ISSBA':
 
         ckpt_path = './models/ISSBA_gtsrb.pth'
 
-    elif args.dataset == 'imagenette':
-        raise  NotImplementedError('imagenette unsupported!')
     else:
         raise  NotImplementedError('Undefined Dataset')
 
@@ -152,17 +144,6 @@ else:
         train_set = datasets.CIFAR10(os.path.join(data_dir, 'cifar10'), train=True,
                                      download=True, transform=data_transform)
         img_size = 32
-        num_classes = 10
-
-    elif args.dataset == 'imagenette':
-
-        data_transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-        ])
-        train_set = datasets.ImageFolder(os.path.join(os.path.join(data_dir, 'imagenette2'), 'train'),
-                                         data_transform)
-        img_size = 224
         num_classes = 10
 
     else:

@@ -1,6 +1,6 @@
 parser_choices = {
 
-    'dataset': ['gtsrb', 'cifar10', 'cifar100', 'imagenette', 'ember', 'imagenet'],
+    'dataset': ['gtsrb', 'cifar10', 'ember', 'imagenet'],
     'poison_type': ['basic', 'badnet', 'blend', 'dynamic', 'clean_label', 'TaCT', 'SIG', 'WaNet', 'refool', 'ISSBA',
                     'adaptive_blend', 'adaptive_patch', 'none', 'badnet_all_to_all', 'trojan', 'SleeperAgent'],
     # 'poison_rate': [0, 0.001, 0.002, 0.004, 0.005, 0.008, 0.01, 0.015, 0.02, 0.05, 0.1],

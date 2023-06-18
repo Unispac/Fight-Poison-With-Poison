@@ -9,15 +9,20 @@ from utils import tools
 
 # extract features
 def get_features(data_loader, model):
+
     label_list = []
     preds_list = []
     feats = []
     gt_confidence = []
     loss_vals = []
+
     criterion_no_reduction = nn.CrossEntropyLoss(reduction='none')
     model.eval()
+
     with torch.no_grad():
+
         for i, (ins_data, ins_target) in enumerate(tqdm(data_loader)):
+
             ins_data, ins_target = ins_data.cuda(), ins_target.cuda()
             output, x_features = model(ins_data, return_hidden=True)
 
@@ -26,6 +31,7 @@ def get_features(data_loader, model):
             preds = torch.argmax(output, dim=1).cpu().numpy()
             prob = torch.softmax(output, dim=1).cpu().numpy()
             this_batch_size = len(ins_target)
+
             for bid in range(this_batch_size):
                 gt = ins_target[bid].cpu().item()
                 feats.append(x_features[bid].cpu().numpy())
@@ -34,6 +40,8 @@ def get_features(data_loader, model):
                 gt_confidence.append(prob[bid][gt])
                 loss_vals.append(loss[bid])
     return feats, label_list, preds_list, gt_confidence, loss_vals
+
+
 
 
 def identify_poison_samples_simplified(inspection_set, clean_indices, model, num_classes):
@@ -175,7 +183,7 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
             print('[class-%d] class with maximal ratio %f!. Apply Cleanser!' % (target_class, max_ratio))
 
             for i in class_indices[target_class]:
-                if preds_inspection[i] == target_class: #gt_confidence_inspection[i] > 0.5:
+                if preds_inspection[i] == target_class:
                     suspicious_indices.append(i)
 
         elif likelihood_ratio > threshold:
@@ -184,7 +192,6 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
 
             for i in class_indices[target_class]:
                 if preds_inspection[i] == target_class:
-                #if gt_confidence_inspection[i] > 0.5:
                     suspicious_indices.append(i)
 
         else:
@@ -519,9 +526,6 @@ def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
             cover_indices = torch.load(os.path.join(inspection_set_dir, 'cover_indices'))
 
         poison_indices = torch.load(os.path.join(inspection_set_dir, 'poison_indices'))
-
-        #for pid in poison_indices:
-        #    print('poison confidence : ', confidence_array[pid])
 
 
         cnt = 0

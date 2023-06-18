@@ -64,8 +64,8 @@ inspection_set_img_dir = os.path.join(inspection_set_dir, 'data')
 print('dataset : %s' % inspection_set_dir)
 poison_indices = torch.load(poison_indices_path)
 
-train_set_dir = '/shadowdata/xiangyu/imagenet_256/train'
-test_set_dir = '/shadowdata/xiangyu/imagenet_256/val'
+train_set_dir = '/path_to_imagenet/train'
+test_set_dir = '/path_to_imagenet/val'
 
 inspection_set = imagenet.imagenet_dataset(directory=train_set_dir, shift=False, aug=False,
                  poison_directory=inspection_set_img_dir, poison_indices=poison_indices, target_class=imagenet.target_class,
