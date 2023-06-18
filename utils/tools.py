@@ -140,7 +140,7 @@ class EMBER_Dataset_norm(Dataset):
             return x
 
 
-def test(model, test_loader, poison_test = False, poison_transform=None, num_classes=10, source_classes=None, all_to_all = False):
+def test(model, test_loader, poison_test = False, poison_transform=None, num_classes=10, source_classes=None):
 
     model.eval()
     clean_correct = 0
@@ -179,7 +179,7 @@ def test(model, test_loader, poison_test = False, poison_transform=None, num_cla
                 poison_pred = poison_output.argmax(dim=1, keepdim=True)
 
 
-                if not all_to_all:
+                if True:
 
                     target_class = target[0].item()
                     for bid in range(this_batch_size):
@@ -193,13 +193,6 @@ def test(model, test_loader, poison_test = False, poison_transform=None, num_cla
                                     num_non_target_class+=1
                                     if poison_pred[bid] == target_class:
                                         poison_correct+=1
-
-                else:
-
-                    for bid in range(this_batch_size):
-                        num_non_target_class += 1
-                        if poison_pred[bid] == target[bid]:
-                            poison_correct += 1
 
                 poison_acc += poison_pred.eq((clean_target.view_as(poison_pred))).sum().item()
     

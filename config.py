@@ -22,24 +22,17 @@ record_poison_seed = True
 record_model_arch = False
 
 trigger_default = {
-    'adaptive': 'hellokitty_32.png',
     'adaptive_blend': 'hellokitty_32.png',
-    'adaptive_mask': 'hellokitty_32.png',
     'adaptive_patch': 'none',
     'clean_label' : 'badnet_patch4_dup_32.png',
-    'basic' : 'badnet_patch_32.png',
     'badnet' : 'badnet_patch_32.png',
     'blend' : 'hellokitty_32.png',
-    'refool': 'none',
     'TaCT' : 'trojan_square_32.png',
     'SIG' : 'none',
     'WaNet': 'none',
     'dynamic' : 'none',
     'ISSBA': 'none',
-    'SleeperAgent': 'none',
     'none' : 'none',
-    'badnet_all_to_all' : 'badnet_patch_32.png',
-    'trojannn': 'none',
     'trojan': 'trojan_square_32.png',
 }
 

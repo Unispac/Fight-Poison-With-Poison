@@ -1,11 +1,11 @@
 <h1 align='center' style="text-align:center; font-weight:bold; font-size:2.0em;letter-spacing:2.0px;"> Towards A Proactive ML Approach for Detecting Backdoor Poison Samples </h1>
 <p align='center' style="text-align:center;font-size:1.25em;">
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Xiangyu Qi</a>&nbsp;,&nbsp;
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Tinghao Xie</a>&nbsp;,&nbsp;
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Jiachen T. Wang</a>&nbsp;,&nbsp;
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Tong Wu</a><br>
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Saeed Mahloujifar</a>&nbsp;,&nbsp;
-    <a href="https://github.com/Unispac/Fight-Poison-With-Poison" target="_blank" style="text-decoration: none;">Prateek Mittal</a>&nbsp;&nbsp; 
+    <a href="https://unispac.github.io/" target="_blank" style="text-decoration: none;">Xiangyu Qi</a>&nbsp;,&nbsp;
+    <a href="http://vtu.life/" target="_blank" style="text-decoration: none;">Tinghao Xie</a>&nbsp;,&nbsp;
+    <a href="https://tianhaowang.netlify.app/" target="_blank" style="text-decoration: none;">Jiachen T. Wang</a>&nbsp;,&nbsp;
+    <a href="https://tongwu2020.github.io/tongwu/" target="_blank" style="text-decoration: none;">Tong Wu</a><br>
+    <a href="https://scholar.google.com/citations?user=kW-hl3YAAAAJ&hl=en" target="_blank" style="text-decoration: none;">Saeed Mahloujifar</a>&nbsp;,&nbsp;
+    <a href="https://www.princeton.edu/~pmittal/" target="_blank" style="text-decoration: none;">Prateek Mittal</a>&nbsp;&nbsp; 
     <br/> 
 Princeton University<br/> 
 </p>
@@ -54,7 +54,7 @@ Our experiments are conducted with PyTorch 1.12.1, and should be compatible with
 
 ## TODO before You Start
 
-- Original CIFAR10 and GTSRB datasets would be automatically downloaded. <font color=red>But Ember and ImageNet must be manually downloaded and set ... </font>
+- Original CIFAR10 and GTSRB datasets would be automatically downloaded. ImageNet should be separated downloaded from [Kaggle](https://www.kaggle.com/competitions/imagenet-object-localization-challenge/data) or other available sources, while Ember can be downloaded from [here](https://github.com/elastic/ember).
 - Before any experiments, first initialize the clean reserved data and validation data using command `python create_clean_set.py -dataset=$DATASET -clean_budget $N`, where `$DATASET = cifar10, gtsrb, ember, imagenet`, `$N = 2000` for `cifar10, gtsrb`, `$N = 5000` for `ember, imagenet`.
 - Before launching `clean_label` attack, run [data/cifar10/clean_label/setup.sh](data/cifar10/clean_label/setup.sh).
 - Before launching `dynamic` attack, download pretrained generators `all2one_cifar10_ckpt.pth.tar` and `all2one_gtsrb_ckpt.pth.tar` to [models/](models/) from https://drive.google.com/file/d/1vG44QYPkJjlOvPs7GpCL2MU8iJfOi0ei/view?usp=sharing and https://drive.google.com/file/d/1x01TDPwvSyMlCMDFd8nG05bHeh1jlSyx/view?usp=sharing.
@@ -63,7 +63,7 @@ Our experiments are conducted with PyTorch 1.12.1, and should be compatible with
 
 
 
-## A Gentle Start
+## A Gentle Start on CIFAR10
 
 To help readers get to know the overall pipeline of our artifact, we first illustrate an example by showing how to launch and defend against BadNet attack on CIFAR10 (corresponding to BadNet lines in Table 1 and Table 2 of the paper).
 
@@ -117,5 +117,45 @@ And to launch other baseline defenses (not poison set cleanser), run script:
 python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=badnet -poison_rate=0.003 # $DEFENSE = ['ABL', 'NC', 'NAD', 'FP']
 ```
 
+### Defending Other Attacks That We Implement
+
+Replace `-poison_type=badnet` with `-poison_type=$attack`, where `$attack=['badnet', 'blend', 'dynamic', 'clean_label', 'TaCT', 'SIG', 'WaNet', 'ISSBA', 'adaptive_blend', 'adaptive_patch', 'none', 'trojan']` can be any one of the 11 attacks in our main tables (Table-1, Table-2). We can also vary `-poison_rate=$rate` to test attacks with different poison rates.
+
+### Experiments on GTSRB
+
+Replace `-dataset cifar10` with `-dataset gtsrb`
 
 
+
+## Experiments on ImageNet and Ember
+
+### ImageNet
+
+> On Imagenet, we use seperate scripts to manage the poisoned dataset creation and confusion training pipeline.
+
+An example on Imagenet:
+
+```bash
+python create_clean_set.py -dataset imagenet -clean_budget 5000 # reserved clean set for CT
+python create_poisoned_set_imagenet.py -poison_type badnet -poison_rate 0.01 # a seperate script for creating poisoned dataset
+python train_on_poisoned_set.py -dataset=imagenet -poison_type=badnet -poison_rate=0.01
+python ct_cleanser_imagenet.py -poison_type=badnet -poison_rate=0.01 -devices=0,1 -debug_info # a seperate script for managing confusion training
+python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=badnet -poison_rate=0.01
+```
+
+### Ember
+
+> On Ember, we use the original code from https://github.com/ClonedOne/MalwareBackdoors to generate poisoned dataset.
+
+We consider "constrained" and "unconstrained" versions of the attack. The poison rate is 1% for both attacks. For the constrainted attack, the trigger watermark size is 17, with attack strategy "LargeAbsSHAP x MinPopulation"; for the unconstrained attack, the trigger watermark size is 32, with attack strategy "Combined Feature Value Selector".
+
+After the generation of the poisoned dataset, the constrained and unconstrained versions of the should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. For ease of usage, we also upload the poisoned dataset we generated [here]().
+
+Example: Run Confusion Training against Ember Unconstrained Attack:
+
+```bash
+python create_clean_set.py -dataset ember -clean_budget 5000 # reserved clean set for Ember
+python train_on_poisoned_set.py -dataset=ember -ember_options=unconstrained
+python ct_cleanser_ember.py -ember_options=unconstrained -debug_info # a seperate script for managing confusion training
+python train_on_cleansed_set.py -cleanser=CT -dataset=ember -ember_options=unconstrained
+```

@@ -106,18 +106,11 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
 
 
     if trigger_name is None:
-        if dataset_name != 'imagenette':
-            trigger_name = config.trigger_default[poison_type]
-        else:
-            if poison_type == 'badnet':
-                trigger_name = 'badnet_high_res.png'
-            else:
-                raise NotImplementedError('%s not implemented for imagenette' % poison_type)
 
-    if dataset_name in ['gtsrb','cifar10', 'cifar100']:
+        trigger_name = config.trigger_default[poison_type]
+
+    if dataset_name in ['gtsrb','cifar10']:
         img_size = 32
-    elif dataset_name == 'imagenette':
-        img_size = 224
     else:
         raise NotImplementedError('<Undefined> Dataset = %s' % dataset_name)
 
@@ -139,15 +132,6 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
                                     (1.0 / 0.2672, 1.0 / 0.2564, 1.0 / 0.2629)),
         ])
         num_classes = 43
-    elif dataset_name == 'imagenette':
-        normalizer = transforms.Compose([
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-        ])
-        denormalizer = transforms.Compose([
-            transforms.Normalize((-0.485/0.229, -0.456/0.224, -0.406/0.225),
-                                 (1.0/0.229, 1.0/0.224, 1.0/0.225)),
-        ])
-        num_classes = 10
     else:
         raise Exception("Invalid Dataset")
 
@@ -155,10 +139,10 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
     trigger = None
     trigger_mask = None
 
-    if poison_type in ['badnet', 'blend', 'clean_label', 'refool',
-                       'adaptive', 'adaptive_blend', 'adaptive_patch',
-                       'SIG', 'TaCT', 'WaNet', 'SleeperAgent', 'none',
-                       'badnet_all_to_all', 'trojan']:
+    if poison_type in ['badnet', 'blend', 'clean_label',
+                       'adaptive_blend', 'adaptive_patch',
+                       'SIG', 'TaCT', 'WaNet', 'none',
+                       'trojan']:
 
         if trigger_transform is None:
             trigger_transform = transforms.Compose([
@@ -189,10 +173,6 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
         if poison_type == 'badnet':
             from poison_tool_box import badnet
             poison_transform = badnet.poison_transform(img_size=img_size, trigger_mark=trigger, trigger_mask=trigger_mask, target_class=target_class)
-        
-        elif poison_type == 'badnet_all_to_all':
-            from poison_tool_box import badnet_all_to_all
-            poison_transform = badnet_all_to_all.poison_transform(img_size=img_size, trigger_mark=trigger, trigger_mask=trigger_mask, num_classes = num_classes)
 
         elif poison_type == 'trojan':
             from poison_tool_box import trojan
@@ -202,10 +182,6 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
             from poison_tool_box import blend
             poison_transform = blend.poison_transform(img_size=img_size, trigger=trigger,
                                                       target_class=target_class, alpha=alpha)
-
-        elif poison_type == 'refool':
-            from poison_tool_box import refool
-            poison_transform = refool.poison_transform(img_size=img_size, target_class=target_class, denormalizer=denormalizer, normalizer=normalizer, max_image_size=32)
 
         elif poison_type == 'clean_label':
             from poison_tool_box import clean_label
@@ -244,11 +220,7 @@ def get_poison_transform(poison_type, dataset_name, target_class, source_class=1
             from poison_tool_box import TaCT
             poison_transform = TaCT.poison_transform(img_size=img_size, trigger=trigger, mask = trigger_mask,
                                                      target_class=target_class)
-        
-        elif poison_type == 'SleeperAgent':
-            from poison_tool_box import SleeperAgent
-            poison_transform = SleeperAgent.poison_transform(random_patch=False, img_size=img_size, target_class=target_class, denormalizer=denormalizer, normalizer=normalizer)
-        
+
         else: # 'none'
             from poison_tool_box import none
             poison_transform = none.poison_transform()

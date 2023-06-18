@@ -207,10 +207,6 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
              inspection_set_dir, confusion_iter, lr, load = True, dataset_name=None):
 
 
-    all_to_all = False
-    if args.poison_type == 'badnet_all_to_all':
-        all_to_all = True
-
     ######### Pretrain Base Model ##############
     model = arch(num_classes = num_classes)
 
@@ -241,7 +237,7 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
                 if dataset_name != 'ember' and dataset_name != 'imagenet':
                     tools.test(model=model, test_loader=debug_packet['test_set_loader'], poison_test=True,
                            poison_transform=debug_packet['poison_transform'], num_classes=num_classes,
-                           source_classes=debug_packet['source_classes'], all_to_all = all_to_all)
+                           source_classes=debug_packet['source_classes'])
                 elif dataset_name == 'imagenet':
                     tools.test_imagenet(model=model, test_loader=debug_packet['test_set_loader'],
                                         poison_transform=debug_packet['poison_transform'])
@@ -260,10 +256,6 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
 def confusion_train(args, params, inspection_set, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
                     num_classes, inspection_set_dir, weight_decay, criterion_no_reduction,
                     momentum, lamb, freq, lr, batch_factor, distillation_iters, dataset_name = None):
-
-    all_to_all = False
-    if args.poison_type == 'badnet_all_to_all':
-        all_to_all = True
 
 
     base_model = arch(num_classes = num_classes)
@@ -372,7 +364,7 @@ def confusion_train(args, params, inspection_set, debug_packet, distilled_set_lo
                 if dataset_name != 'ember' and dataset_name != 'imagenet':
                     tools.test(model=model, test_loader=debug_packet['test_set_loader'], poison_test=True,
                            poison_transform=debug_packet['poison_transform'], num_classes=num_classes,
-                           source_classes=debug_packet['source_classes'], all_to_all = all_to_all)
+                           source_classes=debug_packet['source_classes'])
                 elif dataset_name == 'imagenet':
                     tools.test_imagenet(model=model, test_loader=debug_packet['test_set_loader'],
                                         poison_transform=debug_packet['poison_transform'])
