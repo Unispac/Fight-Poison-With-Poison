@@ -14,16 +14,14 @@ from torchvision.utils import save_image
 target_class = 0
 
 triggers= {
-    'badnet': 'badnet_high_res.png',
+    'badnet': 'badnet_patch.png',
     'blend' : 'random_224.png',
-    'trojan' : 'xxx.png',
+    'trojan' : 'trojan_watermark.jpeg',
     'none': ''
 }
 
-#test_set_labels = 'data/imagenet/ILSVRC2012_validation_ground_truth.txt'
-test_set_labels = '/shadowdata/xiangyu/imagenet_256/val_labels'
-#'/shadowdata/xiangyu/imagenet_256/ILSVRC2012_validation_ground_truth.txt'
-#'data/imagenet/ILSVRC2012_validation_ground_truth.txt'
+
+test_set_labels = '/path_to_imagenet/val_labels'
 
 
 
@@ -191,7 +189,9 @@ def get_poison_transform_for_imagenet(poison_type):
         return badnet_transform(trigger, target_class=target_class)
 
     elif poison_type == 'trojan':
-        raise NotImplementedError('%s is not implemented on ImageNet' % poison_type)
+        trigger = transform_resize(Image.open(trigger_path).convert("RGB"))
+        trigger_mask = torch.logical_or(torch.logical_or(trigger[0] > 0, trigger[1] > 0), trigger[2] > 0).float()
+        return trojan_transform(trigger, trigger_mask, target_class=target_class)
 
     elif poison_type == 'blend':
         trigger = transform_resize(Image.open(trigger_path).convert("RGB"))
@@ -204,9 +204,7 @@ def get_poison_transform_for_imagenet(poison_type):
         raise NotImplementedError('%s is not implemented on ImageNet' % poison_type)
 
 
-
 class badnet_transform():
-
     def __init__(self, trigger, target_class = 0, img_size = 256):
         self.img_size = img_size
         self.trigger = trigger
@@ -216,7 +214,6 @@ class badnet_transform():
 
     def transform(self, data, label):
         # transform clean samples to poison samples
-
         upper_pos = 16
         lower_pos = 240
 
@@ -240,6 +237,20 @@ class blend_transform():
         return data, self.target_class
 
 
+class trojan_transform():
+
+    def __init__(self, trigger, mask, target_class=0, alpha=0.2, img_size=256):
+        self.img_size = img_size
+        self.trigger = trigger
+        self.mask = mask
+        self.target_class = target_class  # by default : target_class = 0
+        self.alpha = alpha
+
+    def transform(self, data, label):
+        data = (1-self.mask) * data + self.mask*( (1-self.alpha)*data + self.alpha*self.trigger )
+            #(1 - self.alpha) * data + self.alpha * self.trigger
+        return data, self.target_class
+
 
 class none_transform_batch():
     def __init__(self):
@@ -250,21 +261,14 @@ class none_transform_batch():
         return data, labels
 
 
+
+
+
 transform_resize = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize(size=[256, 256]),
     ])
 
-
-"""
-def sub_process(pars):
-
-    src_cls_dir_path, dst_cls_dir_path, img_entry = pars
-    src_img_path = os.path.join(src_cls_dir_path, img_entry)
-    dst_img_path = os.path.join(dst_cls_dir_path, img_entry)
-    scaled_img = transform_resize(Image.open(src_img_path).convert("RGB"))
-    save_image(scaled_img, dst_img_path)
-    print('save : ', dst_img_path)"""
 
 
 def create_256_scaled_version(src_directory, dst_directory, is_train_set=True):
@@ -323,20 +327,7 @@ def create_256_scaled_version(src_directory, dst_directory, is_train_set=True):
 
 if __name__ == "__main__":
 
-    #create_256_scaled_version('/shadowdata/xiangyu/imagenet/train', '/shadowdata/xiangyu/imagenet_256/train', is_train_set=True)
-
-    #create_256_scaled_version('/shadowdata/xiangyu/imagenet/val', '/shadowdata/xiangyu/imagenet_256/val',
-    #                          is_train_set=False)
-
-
-    #train_set = imagenet_dataset(directory='data/imagenet/train', transforms=None)
-    #test_set = imagenet_dataset(directory='data/imagenet/val', transforms=None, label_file='data/imagenet/ILSVRC2012_validation_ground_truth.txt')
-
-
-    #print('train_set_size:', len(train_set))
-    #print('test_set_size:', len(test_set))
-
-    root_path = '/shadowdata/xiangyu/imagenet_256/'
+    root_path = 'path_to_imagenet'
     label_maps = os.path.join(root_path, 'imagenet_class_index.json')
     val_labels = os.path.join(root_path, 'ILSVRC2012_val_labels.json')
 
@@ -362,13 +353,3 @@ if __name__ == "__main__":
 
     torch.save(labels, os.path.join(root_path, 'val_labels') )
     print('save: ', os.path.join(root_path, 'val_labels'))
-
-
-
-
-
-
-
-
-
-
