@@ -119,7 +119,7 @@ python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=badnet -
 
 ### Defending Other Attacks That We Implement
 
-Refer to [mics/reproduce.md](mics/reproduce.md)
+Refer to [misc/reproduce.md](misc/reproduce.md)
 
 ### Experiments on GTSRB
 
