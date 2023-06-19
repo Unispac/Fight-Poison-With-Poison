@@ -119,7 +119,7 @@ python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=badnet -
 
 ### Defending Other Attacks That We Implement
 
-Replace `-poison_type=badnet` with `-poison_type=$attack`, where `$attack=['badnet', 'blend', 'dynamic', 'clean_label', 'TaCT', 'SIG', 'WaNet', 'ISSBA', 'adaptive_blend', 'adaptive_patch', 'none', 'trojan']` can be any one of the 11 attacks in our main tables (Table-1, Table-2). We can also vary `-poison_rate=$rate` to test attacks with different poison rates.
+Refer to [mics/reproduce.md](mics/reproduce.md)
 
 ### Experiments on GTSRB
 
@@ -132,6 +132,8 @@ Replace `-dataset cifar10` with `-dataset gtsrb`
 ### ImageNet
 
 > On Imagenet, we use seperate scripts to manage the poisoned dataset creation and confusion training pipeline.
+
+Before going on, you need to downlaod the dataset under the directory `/path_to_imagenet/` which can be customized by yourself. If the directory path is customized, you need to update `./create_poisoned_set_imagenet.py`, `./ct_cleanser_imagenet.py` and `./utils/imagenet.py` by replacing the placeholder `/path_to_imagenet/` with your customized path. Under this directory, you need to put the training data and validation set respectively to `/path_to_imagenet/train` and `/path_to_imagenet/val` folders. You may also need `val_labels` file from [here](https://drive.google.com/drive/folders/17BNApVJMRn4GdIXeLJ6Gzb2uwCVUtMcB?usp=sharing), which is the ground truth labels for Imagenet Validation set to setup our code.
 
 An example on Imagenet:
 
@@ -149,7 +151,7 @@ python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=badn
 
 We consider "constrained" and "unconstrained" versions of the attack. The poison rate is 1% for both attacks. For the constrainted attack, the trigger watermark size is 17, with attack strategy "LargeAbsSHAP x MinPopulation"; for the unconstrained attack, the trigger watermark size is 32, with attack strategy "Combined Feature Value Selector".
 
-After the generation of the poisoned dataset, the constrained and unconstrained versions of the should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. For ease of usage, we also upload the poisoned dataset we generated [here](https://drive.google.com/drive/folders/1clwaG8-plDSPTWMjkJ4DTFfFL6PQflAk?usp=sharing).
+After the generation of the poisoned dataset, the constrained and unconstrained versions of the should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. For ease of usage, we directly upload the poisoned dataset we generated [here](https://drive.google.com/drive/folders/1clwaG8-plDSPTWMjkJ4DTFfFL6PQflAk?usp=sharing).
 
 Example: Run Confusion Training against Ember Unconstrained Attack:
 
