@@ -34,7 +34,7 @@ from utils import supervisor, tools, resnet
 import config
 import confusion_training
 
-tools.setup_seed(args.seed)
+# tools.setup_seed(args.seed)
 
 if args.trigger is None:
     args.trigger = config.trigger_default[args.poison_type]

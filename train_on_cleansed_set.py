@@ -38,7 +38,7 @@ parser.add_argument('-seed', type=int, required=False, default=default_args.seed
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
-tools.setup_seed(args.seed)
+# tools.setup_seed(args.seed)
 
 if args.trigger is None:
     if args.dataset != 'imagenet':

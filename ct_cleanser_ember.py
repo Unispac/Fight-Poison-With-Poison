@@ -23,7 +23,7 @@ from utils import supervisor, tools, ember_nn
 import config
 import confusion_training
 
-tools.setup_seed(args.seed)
+# tools.setup_seed(args.seed)
 
 if args.log:
 
