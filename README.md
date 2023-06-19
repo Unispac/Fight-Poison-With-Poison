@@ -21,9 +21,9 @@ Princeton University<br/>
     <a href="https://arxiv.org/abs/2205.13616" target="_blank" style="text-decoration: none;">arXiv</a>&nbsp;
 </b>
 </p>
+
+
 ----------------------------------------------------------------------
-
-
 
 Official repostory for (USENIX 2023) [Towards A Proactive ML Approach for Detecting Backdoor Poison Samples](https://arxiv.org/abs/2205.13616).
 
