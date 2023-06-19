@@ -38,19 +38,19 @@ Adversaries can embed backdoors in deep learning models by introducing backdoor 
 
 > This is a brief introduction to get you start with our code. Refer to [misc/reproduce.md](misc/reproduce.md) for more details to reproduce our major results.
 
-
+<br>
 
 ## Hardware
 
 Our artifact is compatible with common hardware settings, only specifically requiring NVIDIA GPU support. We recommend a computing node equipped with Intel CPU (≥32 cores) and ≥2 Nvidia A100 GPUs.
 
-
+<br>
 
 ## Dependency
 
 Our experiments are conducted with PyTorch 1.12.1, and should be compatible with PyTorch of newer versions. To reproduce our defense, first manually install PyTorch with CUDA, and then install other packages via `pip install -r requirement.txt`.
 
-
+<br>
 
 ## TODO before You Start
 
@@ -61,7 +61,7 @@ Our experiments are conducted with PyTorch 1.12.1, and should be compatible with
 - `SPECTRE` baseline defense is implemented in Julia. To compare our defense with `SPECTRE`, you must install Julia and install dependencies before running SPECTRE, see [other_cleansers/spectre/README.md](other_cleansers/spectre/README.md) for configuration details.
 - `Frequency` baseline defense is based on Tensorflow. If you would like to reproduce their results, please install Tensorflow (code is tested with Tensorflow 2.8.1 and should be compatible with newer versions) manually, after installing all the dependencies upon.
 
-
+<br>
 
 ## A Gentle Start on CIFAR10
 
@@ -125,7 +125,7 @@ Refer to [misc/reproduce.md](misc/reproduce.md)
 
 Replace `-dataset cifar10` with `-dataset gtsrb`
 
-
+<br>
 
 ## Experiments on ImageNet and Ember
 
