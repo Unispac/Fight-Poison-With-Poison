@@ -9,7 +9,7 @@ parser_choices = {
 parser_default = {
     'dataset': 'cifar10',
     'poison_type': 'badnet',
-    'poison_rate': 0.01,
+    'poison_rate': 0,
     'cover_rate': 0,
     'alpha': 0.2,
 }

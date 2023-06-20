@@ -48,7 +48,7 @@ poison_indices = id_set[:num_poison]
 poison_indices.sort() # increasing order
 
 
-train_set_dir = '/path_to_imagenet/train'
+train_set_dir = '/path_to_imagenet/'
 
 classes, class_to_idx, idx_to_class = imagenet.find_classes(train_set_dir)
 num_imgs, img_id_to_path, img_labels = imagenet.assign_img_identifier(train_set_dir, classes)

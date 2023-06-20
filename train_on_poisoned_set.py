@@ -320,7 +320,7 @@ import time
 st = time.time()
 
 
-scaler = GradScaler()
+#scaler = GradScaler()
 for epoch in range(1, epochs+1):  # train backdoored base model
     start_time = time.perf_counter()
     

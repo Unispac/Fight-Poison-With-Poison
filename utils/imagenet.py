@@ -21,7 +21,7 @@ triggers= {
 }
 
 
-test_set_labels = '/path_to_imagenet/val_labels'
+test_set_labels = '/path_to_imagenet/'
 
 
 

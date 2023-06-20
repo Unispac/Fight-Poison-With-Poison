@@ -7,6 +7,7 @@ from torch import nn
 import torch
 from utils import default_args, supervisor, tools, imagenet
 import time
+from torch.cuda.amp import autocast, GradScaler
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-dataset', type=str, required=False,
@@ -32,19 +33,24 @@ parser.add_argument('-trigger', type=str, required=False,
 parser.add_argument('-no_aug', default=False, action='store_true')
 parser.add_argument('-no_normalize', default=False, action='store_true')
 parser.add_argument('-devices', type=str, default='0')
-parser.add_argument('-cleanser', type=str, choices=['SCAn','AC','SS', 'CT', 'SPECTRE', 'Strip'], default='CT')
+parser.add_argument('-cleanser', type=str, choices=['SCAn','AC','SS', 'CT', 'SPECTRE', 'Strip', 'SentiNet'], default='CT')
 parser.add_argument('-log', default=False, action='store_true')
 parser.add_argument('-seed', type=int, required=False, default=default_args.seed)
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = "%s" % args.devices
-# tools.setup_seed(args.seed)
+tools.setup_seed(args.seed)
 
 if args.trigger is None:
-    if args.dataset != 'imagenet':
+    if args.dataset != 'imagenette' and args.dataset != 'imagenet':
         args.trigger = config.trigger_default[args.poison_type]
     elif args.dataset == 'imagenet':
         args.trigger = imagenet.triggers[args.poison_type]
+    else:
+        if args.poison_type == 'badnet':
+            args.trigger = 'badnet_high_res.png'
+        else:
+            raise NotImplementedError('%s not implemented for imagenette' % args.poison_type)
 
 
 all_to_all = False
@@ -65,7 +71,6 @@ if args.log:
     sys.stderr = ferr
 
 batch_size = 128
-kwargs = {'num_workers': 2, 'pin_memory': True}
 
 
 
@@ -92,8 +97,8 @@ if args.dataset == 'cifar10':
 
     momentum = 0.9
     weight_decay = 1e-4
-    milestones = [100, 150]
-    epochs = 200
+    milestones = [50, 75]
+    epochs = 100
     learning_rate = 0.1
 
 elif args.dataset == 'gtsrb':
@@ -119,8 +124,19 @@ elif args.dataset == 'gtsrb':
     momentum = 0.9
     weight_decay = 1e-4
     epochs = 100
-    milestones = torch.tensor([40, 80])
+    milestones = [30, 60]
+    learning_rate = 0.01
+
+elif args.dataset == 'imagenet':
+
+    num_classes = 1000
+    arch = config.arch[args.dataset]
+    momentum = 0.9
+    weight_decay = 1e-4
+    epochs = 90
+    milestones = torch.tensor([30, 60])
     learning_rate = 0.1
+    batch_size = 256
 
 elif args.dataset == 'ember':
 
@@ -139,8 +155,15 @@ else:
     raise Exception("Invalid Dataset")
 
 
+if args.dataset == 'imagenet':
+    kwargs = {'num_workers': 32, 'pin_memory': True}
+else:
+    kwargs = {'num_workers': 4, 'pin_memory': True}
 
-if args.dataset != 'ember':
+
+
+if args.dataset != 'ember' and args.dataset != 'imagenet':
+
     poison_set_dir = supervisor.get_poison_set_dir(args)
     poisoned_set_img_dir = os.path.join(poison_set_dir, 'data')
     poisoned_set_label_path = os.path.join(poison_set_dir, 'labels')
@@ -149,6 +172,31 @@ if args.dataset != 'ember':
     cleansed_set_indices_dir = supervisor.get_cleansed_set_indices_dir(args)
     print('load : %s' % cleansed_set_indices_dir)
     cleansed_set_indices = torch.load(cleansed_set_indices_dir)
+
+
+elif args.dataset == 'imagenet':
+
+    poison_set_dir = supervisor.get_poison_set_dir(args)
+    poison_indices_path = os.path.join(poison_set_dir, 'poison_indices')
+    poisoned_set_img_dir = os.path.join(poison_set_dir, 'data')
+    print('dataset : %s' % poison_set_dir)
+
+    poison_indices = torch.load(poison_indices_path)
+
+    root_dir = '/path_to_imagenet/'
+    train_set_dir = os.path.join(root_dir, 'train')
+    test_set_dir = os.path.join(root_dir, 'val')
+
+    from utils import imagenet
+    poisoned_set = imagenet.imagenet_dataset(directory=train_set_dir, poison_directory=poisoned_set_img_dir,
+                                             poison_indices = poison_indices, target_class=imagenet.target_class,
+                                             num_classes=1000)
+
+    cleansed_set_indices_dir = supervisor.get_cleansed_set_indices_dir(args)
+    print('load : %s' % cleansed_set_indices_dir)
+    cleansed_set_indices = torch.load(cleansed_set_indices_dir)
+
+
 else:
     poison_set_dir = os.path.join('poisoned_train_set', 'ember', args.ember_options)
     poison_indices_path = os.path.join(poison_set_dir, 'poison_indices')
@@ -183,7 +231,7 @@ cleansed_set = torch.utils.data.Subset(poisoned_set, cleansed_set_indices)
 train_set = cleansed_set
 
 
-if args.dataset != 'ember':
+if args.dataset != 'ember' and args.dataset != 'imagenet':
 
     # Set Up Test Set for Debug & Evaluation
     test_set_dir = os.path.join('clean_set', args.dataset, 'test_split')
@@ -191,6 +239,7 @@ if args.dataset != 'ember':
     test_set_label_path = os.path.join(test_set_dir, 'labels')
     test_set = tools.IMG_Dataset(data_dir=test_set_img_dir,
                                  label_path=test_set_label_path, transforms=data_transform_no_aug)
+    print('with no aug...')
     test_set_loader = torch.utils.data.DataLoader(
         test_set,
         batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
@@ -201,6 +250,29 @@ if args.dataset != 'ember':
                                                        is_normalized_input=True,
                                                        alpha=args.alpha if args.test_alpha is None else args.test_alpha,
                                                        trigger_name=args.trigger, args=args)
+
+
+elif args.dataset == 'imagenet':
+
+    poison_transform = imagenet.get_poison_transform_for_imagenet(args.poison_type)
+
+    test_set = imagenet.imagenet_dataset(directory=test_set_dir, shift=False, aug=False,
+                 label_file=imagenet.test_set_labels, num_classes=1000)
+    test_set_backdoor = imagenet.imagenet_dataset(directory=test_set_dir, shift=False, aug=False,
+                 label_file=imagenet.test_set_labels, num_classes=1000, poison_transform=poison_transform)
+
+    test_split_meta_dir = os.path.join('clean_set', args.dataset, 'test_split')
+    test_indices = torch.load(os.path.join(test_split_meta_dir, 'test_indices'))
+
+    test_set = torch.utils.data.Subset(test_set, test_indices)
+    test_set_loader = torch.utils.data.DataLoader(
+        test_set,
+        batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
+
+    test_set_backdoor = torch.utils.data.Subset(test_set_backdoor, test_indices)
+    test_set_backdoor_loader = torch.utils.data.DataLoader(
+        test_set_backdoor,
+        batch_size=batch_size, shuffle=False, worker_init_fn=tools.worker_init, **kwargs)
 
 else:
     normalizer = poisoned_set.normal
@@ -238,22 +310,26 @@ if args.poison_type == 'TaCT':
 else:
     source_classes = None
 
+
+#milestones = milestones.tolist()
 model = arch(num_classes=num_classes)
 model = nn.DataParallel(model)
 model = model.cuda()
+
 
 
 if args.dataset != 'ember':
 
     print(f"Will save to '{supervisor.get_model_dir(args, cleanse=True)}'.")
     if os.path.exists(supervisor.get_model_dir(args, cleanse=True)):  # exit if there is an already trained model
-        print(f"Model '{supervisor.get_model_dir(args, cleanse=True)}' already exists!")
-        model = arch(num_classes=num_classes)
-        model.load_state_dict(torch.load(supervisor.get_model_dir(args, cleanse=True)))
-        model = model.cuda()
-        tools.test(model=model, test_loader=test_set_loader, poison_test=True, poison_transform=poison_transform,
-                   num_classes=num_classes, source_classes=source_classes)
-        exit(0)
+        pass
+        #print(f"Model '{supervisor.get_model_dir(args, cleanse=True)}' already exists!")
+        #model = arch(num_classes=num_classes)
+        #model.load_state_dict(torch.load(supervisor.get_model_dir(args, cleanse=True)))
+        #model = model.cuda()
+        #tools.test(model=model, test_loader=test_set_loader, poison_test=True, poison_transform=poison_transform,
+        #           num_classes=num_classes, source_classes=source_classes)
+        #exit(0)
     criterion = nn.CrossEntropyLoss().cuda()
 else:
     model_path = os.path.join('poisoned_train_set', 'ember', args.ember_options, 'model_trained_on_cleansed_data_seed=%d.pt' % args.seed)
@@ -263,32 +339,56 @@ else:
     criterion = nn.BCELoss().cuda()
 
 
+print('milestones:', milestones)
 optimizer = torch.optim.SGD(model.parameters(), learning_rate, momentum=momentum, weight_decay=weight_decay)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones)
+
+cnt = 0
 from tqdm import tqdm
+#scaler = GradScaler()
+
 for epoch in range(1,epochs+1):
     start_time = time.perf_counter()
 
     model.train()
     for data, target in tqdm(train_loader):
+
+        #data = data.cuda(non_blocking=True)
+        #target = target.cuda(non_blocking=True)
+
+        data, target = data.cuda(), target.cuda()
+        #optimizer.zero_grad(set_to_none=True)
         optimizer.zero_grad()
-        data, target = data.cuda(), target.cuda()  # train set batch
+
+        #with autocast():
         output = model(data)
         loss = criterion(output, target)
+
         loss.backward()
         optimizer.step()
+
+        #scaler.scale(loss).backward()
+        #scaler.step(optimizer)
+        #scaler.update()
+
     scheduler.step()
-    
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
-    print('<Cleansed Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, Time: {:.2f}s'.format(epoch, loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
+    print('<Cleansed Training> Train Epoch: {} \tLoss: {:.6f}, lr: {:.6f}, Time: {:.2f}s'.format(epoch,
+                                            loss.item(), optimizer.param_groups[0]['lr'], elapsed_time))
 
     # Test
     if args.dataset != 'ember':
         if epoch % 20 == 0:
-            tools.test(model=model, test_loader=test_set_loader, poison_test=True,
-                           poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes)
-            torch.save(model.module.state_dict(), supervisor.get_model_dir(args, cleanse=True))
+            if args.dataset == 'imagenet':
+                tools.test_imagenet(model=model, test_loader=test_set_loader,
+                                    test_backdoor_loader=test_set_backdoor_loader)
+                torch.save(model.module.state_dict(), supervisor.get_model_dir(args, cleanse=True))
+            else:
+                tools.test(model=model, test_loader=test_set_loader, poison_test=True,
+                           poison_transform=poison_transform, num_classes=num_classes, source_classes=source_classes,
+                           all_to_all=all_to_all)
+                torch.save(model.module.state_dict(), supervisor.get_model_dir(args, cleanse=True))
     else:
         if epoch % 5 == 0:
             tools.test_ember(model=model, test_loader=test_set_loader, backdoor_test_loader=backdoor_test_set_loader)
