@@ -98,7 +98,7 @@ This document provides guidance to reproduce our major experimental results our 
 
 ## Hardware
 
-Our artifact is compatible with common hardware settings, only specifically requiring NVIDIA GPU support. We recommend a computing node equipped with Intel CPU (≥32 cores) and ≥2 Nvidia A100 GPUs.
+Our artifact is compatible with common hardware settings, only specifically requiring NVIDIA GPU support. Our experiment environments are equipped with Intel CPU (≥32 cores) and ≥2 Nvidia A100 GPUs.
 
 ## Dependency
 
@@ -106,11 +106,26 @@ Our experiments are conducted with PyTorch 1.12.1, and should be compatible with
 
 ## TODO before You Start
 
-- Original CIFAR10 and GTSRB datasets would be automatically downloaded. But Ember and ImageNet must be manually downloaded and set ... [TBD].
+- Original CIFAR10 and GTSRB datasets would be automatically downloaded. 
+
+  * *[Necessary if you also want to run ImageNet]* ImageNet should be separated downloaded from [Kaggle](https://www.kaggle.com/competitions/imagenet-object-localization-challenge/data) or other available sources.
+
+    > The dataset should be put under the directory `/path_to_imagenet/` which can be customized by yourself. If the directory path is customized, you need to update `./create_poisoned_set_imagenet.py`, `./ct_cleanser_imagenet.py` and `./utils/imagenet.py` by replacing the placeholder `/path_to_imagenet/` with your customized path. Under this directory, you need to put the training data and validation set respectively to `/path_to_imagenet/train` and `/path_to_imagenet/val` folders. You also need to place the `val_labels` file from [here](https://drive.google.com/drive/folders/17BNApVJMRn4GdIXeLJ6Gzb2uwCVUtMcB?usp=sharing) as `/path_to_imagenet/val_labels` , which is the ground truth labels for Imagenet validation set to setup our code (used in `./utils/imagenet.py`).
+
+  * *[Necessary if you also want to run Ember]* Ember dataset can be downloaded from [here](https://github.com/elastic/ember). The poisoned Ember dataset should be seperately created via the code from https://github.com/ClonedOne/MalwareBackdoors. [Note: *We consider "constrained" and "unconstrained" versions of the attack. The poison rate is 1% for both attacks. For the constrainted attack, the trigger watermark size is 17, with attack strategy "LargeAbsSHAP x MinPopulation"; for the unconstrained attack, the trigger watermark size is 32, with attack strategy "Combined Feature Value Selector".*]
+
+    > After the generation of the poisoned dataset, the constrained and unconstrained versions of the poisoned dataset should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. 
+
+    *Alternatively, you can directly download the poisoned dataset we generated [here](https://drive.google.com/drive/folders/1clwaG8-plDSPTWMjkJ4DTFfFL6PQflAk?usp=sharing).*
+
 - Before any experiments, first initialize the clean reserved data and validation data using command `python create_clean_set.py -dataset=$DATASET` (where `$DATASET = cifar10, gtsrb, ember, imagenet`).
+
 - Before launching `clean_label` attack, run [data/cifar10/clean_label/setup.sh](data/cifar10/clean_label/setup.sh).
+
 - Before launching `dynamic` attack, download pretrained generators `all2one_cifar10_ckpt.pth.tar` and `all2one_gtsrb_ckpt.pth.tar` to [models/](models/) from https://drive.google.com/file/d/1vG44QYPkJjlOvPs7GpCL2MU8iJfOi0ei/view?usp=sharing and https://drive.google.com/file/d/1x01TDPwvSyMlCMDFd8nG05bHeh1jlSyx/view?usp=sharing.
+
 - `SPECTRE` baseline defense is implemented in Julia. To compare our defense with `SPECTRE`, you must install Julia and install dependencies before running SPECTRE, see [other_cleansers/spectre/README.md](other_cleansers/spectre/README.md) for configuration details.
+
 - `Frequency` baseline defense is based on Tensorflow. If you would like to reproduce their results, please install Tensorflow (code is tested with Tensorflow 2.8.1 and should be compatible with newer versions) manually, after installing all the dependencies upon.
 
 
@@ -170,7 +185,7 @@ python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=badnet -
 
 # Reproduction Commands
 
-## Table 1 and Table 2
+## Table 1 and Table 2<br>(Our Main Tables: CIFAR10 and GTSRB)
 
 ```bash
 python create_poisoned_set.py -dataset cifar10 -poison_type none
@@ -328,12 +343,71 @@ do
 done
 ```
 
-## Table 3
 
-## Table 4
 
-## Table 5
+## Table 4 (Ember)
 
-## Table 6
+Generate the poisoned dataset using the code from https://github.com/ClonedOne/MalwareBackdoors or directly download the poisoned dataset we generated [here](https://drive.google.com/drive/folders/1clwaG8-plDSPTWMjkJ4DTFfFL6PQflAk?usp=sharing).
 
-## Figure 6
+> The constrained and unconstrained versions of the poisoned dataset should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. 
+
+```bash
+### reserved clean set for Ember
+python create_clean_set.py -dataset ember -clean_budget 5000
+
+### Train Backdoored Models (without defense)
+python train_on_poisoned_set.py -dataset ember -ember_options none
+python train_on_poisoned_set.py -dataset ember -ember_options constrained
+python train_on_poisoned_set.py -dataset ember -ember_options unconstrained
+
+### Cleanse Poisoned Dataset with Confusion Training (CT)
+python ct_cleanser_ember.py -ember_options=none -debug_info
+python ct_cleanser_ember.py -ember_options=constrained -debug_info
+python ct_cleanser_ember.py -ember_options=unconstrained -debug_info
+
+### Train on Cleansed Dataset to get clean model
+python train_on_cleansed_set.py -cleanser=CT -dataset=ember -ember_options=none
+python train_on_cleansed_set.py -cleanser=CT -dataset=ember -ember_options=constrained
+python train_on_cleansed_set.py -cleanser=CT -dataset=ember -ember_options=unconstrained
+```
+
+
+
+
+
+## Table 5 (ImageNet)
+
+```bash
+### reserved clean set for ImageNet
+python create_clean_set.py -dataset imagenet -clean_budget 5000
+
+### creating poisoned datasets
+python create_poisoned_set_imagenet.py -poison_type none # clean dataset
+python create_poisoned_set_imagenet.py -poison_type badnet -poison_rate 0.01 
+python create_poisoned_set_imagenet.py -poison_type blend -poison_rate 0.01
+python create_poisoned_set_imagenet.py -poison_type trojan -poison_rate 0.01
+
+### Train Backdoored Models (without defense) 
+python train_on_poisoned_set.py -dataset=imagenet -poison_type=none -devices=0,1
+python train_on_poisoned_set.py -dataset=imagenet -poison_type=badnet -poison_rate=0.01 -devices=0,1
+python train_on_poisoned_set.py -dataset=imagenet -poison_type=blend -poison_rate=0.01 -devices=0,1
+python train_on_poisoned_set.py -dataset=imagenet -poison_type=trojan -poison_rate=0.01 -devices=0,1
+
+### Cleanse The Poisoned Dataset with Confusion Training (CT)
+python ct_cleanser_imagenet.py -poison_type=none -devices=0,1 -debug_info
+python ct_cleanser_imagenet.py -poison_type=badnet -poison_rate=0.01 -devices=0,1 -debug_info
+python ct_cleanser_imagenet.py -poison_type=blend -poison_rate=0.01 -devices=0,1 -debug_info
+python ct_cleanser_imagenet.py -poison_type=trojan -poison_rate=0.01 -devices=0,1 -debug_info
+
+
+### Train on Cleansed Dataset
+python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=none -devices=0,1
+python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=badnet -poison_rate=0.01 -devices=0,1
+python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=blend -poison_rate=0.01 -devices=0,1
+python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=trojan -poison_rate=0.01 -devices=0,1
+```
+
+
+
+
+
