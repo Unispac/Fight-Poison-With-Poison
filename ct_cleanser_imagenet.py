@@ -32,7 +32,7 @@ from utils import supervisor, tools, resnet, imagenet
 import config
 import confusion_training
 
-tools.setup_seed(args.seed)
+# tools.setup_seed(args.seed)
 
 args.dataset = 'imagenet'
 args.trigger = imagenet.triggers[args.poison_type]

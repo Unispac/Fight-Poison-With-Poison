@@ -66,6 +66,9 @@ class SentiNet():
         poison_rate = args.poison_rate
         args.poison_type = 'none'
         args.poison_rate = 0
+        if not os.path.exists(supervisor.get_poison_set_dir(args)):
+            print(f"Please run command `python create_poisoned_set.py -dataset {args.dataset} -poison_type none -poison_rate 0` to create a referenced clean training set first!")
+            exit()
         _, original_set_loader, _, _ = unpack_poisoned_train_set(args, shuffle=False, batch_size=1)
         original_set = original_set_loader.dataset
         args.poison_type = poison_type

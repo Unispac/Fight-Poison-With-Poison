@@ -207,11 +207,11 @@ if (hasattr(args, 'model_path') and args.model_path is not None) or (hasattr(arg
     alias_list.append('assigned')
 
 else:
-    args.no_aug = True
-    #path = os.path.join(poison_set_dir, 'full_base_no_aug.pt') #
-    path = supervisor.get_model_dir(args)
-    model_list.append(path)
-    alias_list.append(supervisor.get_model_name(args))
+    # args.no_aug = True
+    # #path = os.path.join(poison_set_dir, 'full_base_no_aug.pt') #
+    # path = supervisor.get_model_dir(args)
+    # model_list.append(path)
+    # alias_list.append(supervisor.get_model_name(args))
 
     args.no_aug = False
     #path = os.path.join(poison_set_dir, 'full_base_aug.pt') #supervisor.get_model_dir(args)

@@ -54,7 +54,7 @@ if args.poison_type == 'badnet_all_to_all':
     all_to_all = True
 
 
-tools.setup_seed(args.seed)
+# tools.setup_seed(args.seed)
 
 if args.log:
     out_path = 'logs'

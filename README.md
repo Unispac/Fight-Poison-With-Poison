@@ -54,7 +54,7 @@ Our experiments are conducted with PyTorch 1.12.1, and should be compatible with
 
 ## TODO before You Start
 
-- Original CIFAR10 and GTSRB datasets would be automatically downloaded. ImageNet should be separated downloaded from [Kaggle](https://www.kaggle.com/competitions/imagenet-object-localization-challenge/data) or other available sources, while Ember can be downloaded from [here](https://github.com/elastic/ember).
+- Original CIFAR10 and GTSRB datasets would be automatically downloaded. ImageNet should be separated downloaded from [Kaggle](https://www.kaggle.com/competitions/imagenet-object-localization-challenge/data) or other available sources, while Ember can be downloaded from [here](https://github.com/elastic/ember). To properly set up ImageNet and Ember datasets, refer to more details in [Experiments on ImageNet and Ember](#experiments-on-imagenet-and-ember).
 - Before any experiments, first initialize the clean reserved data and validation data using command `python create_clean_set.py -dataset=$DATASET -clean_budget $N`, where `$DATASET = cifar10, gtsrb, ember, imagenet`, `$N = 2000` for `cifar10, gtsrb`, `$N = 5000` for `ember, imagenet`.
 - Before launching `clean_label` attack, run [data/cifar10/clean_label/setup.sh](data/cifar10/clean_label/setup.sh).
 - Before launching `dynamic` attack, download pretrained generators `all2one_cifar10_ckpt.pth.tar` and `all2one_gtsrb_ckpt.pth.tar` to [models/](models/) from https://drive.google.com/file/d/1vG44QYPkJjlOvPs7GpCL2MU8iJfOi0ei/view?usp=sharing and https://drive.google.com/file/d/1x01TDPwvSyMlCMDFd8nG05bHeh1jlSyx/view?usp=sharing.
@@ -78,7 +78,7 @@ python create_poisoned_set.py -dataset=cifar10 -poison_type=badnet -poison_rate=
 ```bash
 python train_on_poisoned_set.py -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
 ```
-The model checkpoint will be automatically saved to [poisoned_train_set/cifar10/badnet_0.003_poison_seed=0/full_base_aug_seed=2333.pt](poisoned_train_set/cifar10/badnet_0.003_poison_seed=0/full_base_aug_seed=2333.pt).
+This step requires ~0.5 A100 GPU hour. The model checkpoint will be automatically saved to [poisoned_train_set/cifar10/badnet_0.003_poison_seed=0/full_base_aug_seed=2333.pt](poisoned_train_set/cifar10/badnet_0.003_poison_seed=0/full_base_aug_seed=2333.pt).
 
 After training, you may evaluate the trained model's performance (ACC & ASR) via:
 ```bash
@@ -101,6 +101,7 @@ python ct_cleanser.py -dataset=cifar10 -poison_type=badnet -poison_rate=0.003 -d
 # Retrain a benign model on the cleansed training set (results in Table 2)
 python train_on_cleansed_set.py -cleanser=CT -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
 ```
+The first command (confusion training) requires ~1.5 A100 GPU hours, and the second command (retrain) requires ~0.5 A100 GPU hour.
 
 To launch baseline defenses (poison set cleanser), run script:
 ```bash
@@ -110,20 +111,16 @@ python other_cleanser.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=badne
 # Retrain a benign model on the cleansed training set (results in Table 2)
 python train_on_cleansed_set.py -cleanser=$CLEANSER -dataset=cifar10 -poison_type=badnet -poison_rate=0.003
 ```
+The first command (other poison set cleansers) generally requires minute-level GPU time, except that 'SentiNet' defense requires >15 A100 GPU hours. The second command (retrain) similarly requires ~0.5 A100 GPU hour.
 
 And to launch other baseline defenses (not poison set cleanser), run script:
 ```bash
 # (results in Table 2)
 python other_defense.py -defense=$DEFENSE -dataset=cifar10 -poison_type=badnet -poison_rate=0.003 # $DEFENSE = ['ABL', 'NC', 'NAD', 'FP']
 ```
+where all these defenses requires <0.5 A100 GPU hours.
 
-### Defending Other Attacks That We Implement
-
-Refer to [misc/reproduce.md](misc/reproduce.md)
-
-### Experiments on GTSRB
-
-Replace `-dataset cifar10` with `-dataset gtsrb`
+> To conduct experiments on GTSRB, simply replace all `-dataset cifar10` with `-dataset gtsrb`. To defend against other attacks that we implement, refer to [misc/reproduce.md](misc/reproduce.md) for more details.
 
 Refer to [misc/reproduce.md](misc/reproduce.md) for details
 
@@ -137,7 +134,7 @@ Below we provide steps for a gentle start, refer to [misc/reproduce.md](misc/rep
 
 > On Imagenet, we use seperate scripts to manage the poisoned dataset creation and confusion training pipeline.
 
-Before going on, you need to downlaod the dataset under the directory `/path_to_imagenet/` which can be customized by yourself. If the directory path is customized, you need to update `./create_poisoned_set_imagenet.py`, `./ct_cleanser_imagenet.py` and `./utils/imagenet.py` by replacing the placeholder `/path_to_imagenet/` with your customized path. Under this directory, you need to put the training data and validation set respectively to `/path_to_imagenet/train` and `/path_to_imagenet/val` folders. You also need to place the `val_labels` file from [here](https://drive.google.com/drive/folders/17BNApVJMRn4GdIXeLJ6Gzb2uwCVUtMcB?usp=sharing) as `/path_to_imagenet/val_labels` , which is the ground truth labels for Imagenet validation set to setup our code (used in `./utils/imagenet.py`).
+Before going on, you need to download the dataset under the directory `/path_to_imagenet/` which can be customized by yourself. If the directory path is customized, you need to update `./create_poisoned_set_imagenet.py`, `./ct_cleanser_imagenet.py` and `./utils/imagenet.py` by replacing the placeholder `/path_to_imagenet/` with your customized path. Under this directory, you need to put the training data and validation set respectively to `/path_to_imagenet/train` and `/path_to_imagenet/val` folders. You also need to download the `val_labels` file from [here](https://drive.google.com/drive/folders/17BNApVJMRn4GdIXeLJ6Gzb2uwCVUtMcB?usp=sharing) and place it to `/path_to_imagenet/val_labels` , which is the ground truth labels for Imagenet validation set to setup our code (used in `./utils/imagenet.py`).
 
 An example on Imagenet:
 
