@@ -122,8 +122,6 @@ where all these defenses requires <0.5 A100 GPU hours.
 
 > To conduct experiments on GTSRB, simply replace all `-dataset cifar10` with `-dataset gtsrb`. To defend against other attacks that we implement, refer to [misc/reproduce.md](misc/reproduce.md) for more details.
 
-Refer to [misc/reproduce.md](misc/reproduce.md) for details
-
 <br>
 
 ## Experiments on ImageNet and Ember
