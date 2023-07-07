@@ -139,16 +139,14 @@ Below we provide steps for a gentle start, refer to [misc/reproduce.md](misc/rep
 * Get the original ImageNet Dataset (from [Kaggle](https://www.kaggle.com/competitions/imagenet-object-localization-challenge/data) or other available sources). Put the dataset as `./data/imagenet` and organize the directory in the structure of:
 
   ```shell
-  ├── imagenet         # root directory for imagenet dataset
-  |   ├── train                # trainining set directory
+  ├── imagenet  # root directory for imagenet dataset
+  |   ├── train  # trainining set directory
   |   |     ├── n01440764   # each class fure forms a subdirectory
-  |		|			|..............
-  |   |
-  |   └── val            # validation set directory of 50k images
+  |		|			└── ...
+  |   └── val  # validation set directory of 50k images
   |   |     ├── ILSVRC2012_val_00000001.JPEG 
-  |		|			|..............
-  |   |
-  |   └── val_labels # labels of the 50k validation iamges            
+  |		|			└── ...
+  |   └── val_labels # labels of the 50k validation iamges 
   ```
 Note: The `val_labels` file (will be used in `./utils/imagenet.py`) should be separately downloaded from [here](https://drive.google.com/drive/folders/17BNApVJMRn4GdIXeLJ6Gzb2uwCVUtMcB?usp=sharing).
 
