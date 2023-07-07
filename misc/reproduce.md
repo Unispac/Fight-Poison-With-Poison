@@ -106,17 +106,11 @@ Our experiments are conducted with PyTorch 1.12.1, and should be compatible with
 
 ## TODO before You Start
 
-- Original CIFAR10 and GTSRB datasets would be automatically downloaded. 
+- Dataset
 
-  * *[Necessary if you also want to run ImageNet]* ImageNet should be separated downloaded from [Kaggle](https://www.kaggle.com/competitions/imagenet-object-localization-challenge/data) or other available sources.
+  * Original CIFAR10 and GTSRB datasets would be automatically downloaded. 
 
-    > The dataset should be put under the directory `/path_to_imagenet/` which can be customized by yourself. If the directory path is customized, you need to update `./create_poisoned_set_imagenet.py`, `./ct_cleanser_imagenet.py`, `./train_on_poisoned_set.py`, `./train_on_cleansed_set.py` and `./utils/imagenet.py` by replacing the placeholder `/path_to_imagenet/` with your customized path. Under this directory, you need to put the training data and validation set respectively to `/path_to_imagenet/train` and `/path_to_imagenet/val` folders. You also need to place the `val_labels` file from [here](https://drive.google.com/drive/folders/17BNApVJMRn4GdIXeLJ6Gzb2uwCVUtMcB?usp=sharing) as `/path_to_imagenet/val_labels` , which is the ground truth labels for Imagenet validation set to setup our code (used in `./utils/imagenet.py`).
-
-  * *[Necessary if you also want to run Ember]* Ember dataset can be downloaded from [here](https://github.com/elastic/ember). The poisoned Ember dataset should be seperately created via the code from https://github.com/ClonedOne/MalwareBackdoors. [Note: *We consider "constrained" and "unconstrained" versions of the attack. The poison rate is 1% for both attacks. For the constrainted attack, the trigger watermark size is 17, with attack strategy "LargeAbsSHAP x MinPopulation"; for the unconstrained attack, the trigger watermark size is 32, with attack strategy "Combined Feature Value Selector".*]
-
-    > After the generation of the poisoned dataset, the constrained and unconstrained versions of the poisoned dataset should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. 
-
-    *Alternatively, you can directly download the poisoned dataset we generated [here](https://drive.google.com/drive/folders/1clwaG8-plDSPTWMjkJ4DTFfFL6PQflAk?usp=sharing).*
+  * To properly set up ImageNet and Ember datasets, refer to the examples of [Experiments on ImageNet and Ember](https://github.com/Unispac/Fight-Poison-With-Poison#experiments-on-imagenet-and-ember) in `README.md`.
 
 - Before any experiments, first initialize the clean reserved data and validation data using command `python create_clean_set.py -dataset=$DATASET -clean_budget $N`, where `$DATASET = cifar10, gtsrb, ember, imagenet`, `$N = 2000` for `cifar10, gtsrb`, `$N = 5000` for `ember, imagenet`.
 
@@ -360,10 +354,6 @@ done
 
 
 ## Ember (Table 4)
-
-Generate the poisoned dataset using the code from https://github.com/ClonedOne/MalwareBackdoors or directly download the poisoned dataset we generated [here](https://drive.google.com/drive/folders/1clwaG8-plDSPTWMjkJ4DTFfFL6PQflAk?usp=sharing).
-
-> The constrained and unconstrained versions of the poisoned dataset should be placed at `./poisoned_train_set/ember/$type` where `$type = ['constrained', 'unconstrained', 'none']`. Particularly, 'none' corresponds to the clean dataset without attack. 
 
 ```bash
 ### reserved clean set for Ember

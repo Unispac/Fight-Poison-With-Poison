@@ -136,21 +136,57 @@ Below we provide steps for a gentle start, refer to [misc/reproduce.md](misc/rep
 
 > On Imagenet, we use seperate scripts to manage the poisoned dataset creation and confusion training pipeline.
 
-Before going on, you need to download the dataset under the directory `/path_to_imagenet/` which can be customized by yourself. If the directory path is customized, you need to update `./create_poisoned_set_imagenet.py`, `./ct_cleanser_imagenet.py`, `./train_on_poisoned_set.py`, `./train_on_cleansed_set.py` and `./utils/imagenet.py` by replacing the placeholder `/path_to_imagenet/` with your customized path. Under this directory, you need to put the training data and validation set respectively to `/path_to_imagenet/train` and `/path_to_imagenet/val` folders. You also need to download the `val_labels` file from [here](https://drive.google.com/drive/folders/17BNApVJMRn4GdIXeLJ6Gzb2uwCVUtMcB?usp=sharing) and place it to `/path_to_imagenet/val_labels` , which is the ground truth labels for Imagenet validation set to setup our code (used in `./utils/imagenet.py`).
+* Get the original ImageNet Dataset (from [Kaggle](https://www.kaggle.com/competitions/imagenet-object-localization-challenge/data) or other available sources). Put the dataset as `./data/imagenet` and organize the directory in the structure of:
 
-An example on Imagenet:
+  ```shell
+  ├── imagenet         # root directory for imagenet dataset
+  |   ├── train                # trainining set directory
+  |   |     ├── n01440764   # each class fure forms a subdirectory
+  |		|			|..............
+  |   |
+  |   └── val            # validation set directory of 50k images
+  |   |     ├── ILSVRC2012_val_00000001.JPEG 
+  |		|			|..............
+  |   |
+  |   └── val_labels # labels of the 50k validation iamges            
+  ```
+Note: The `val_labels` file (will be used in `./utils/imagenet.py`) should be separately downloaded from [here](https://drive.google.com/drive/folders/17BNApVJMRn4GdIXeLJ6Gzb2uwCVUtMcB?usp=sharing).
 
-```bash
-python create_clean_set.py -dataset imagenet -clean_budget 5000 # reserved clean set for CT
-python create_poisoned_set_imagenet.py -poison_type badnet -poison_rate 0.01 # a seperate script for creating poisoned dataset
-python train_on_poisoned_set.py -dataset=imagenet -poison_type=badnet -poison_rate=0.01
-python ct_cleanser_imagenet.py -poison_type=badnet -poison_rate=0.01 -devices=0,1 -debug_info # a seperate script for managing confusion training
-python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=badnet -poison_rate=0.01
-```
+
+* Resize all samples to 256 x 256 scale to make the dataset compatible with our toolkit.
+
+  If you place the original dataset in the structure above under the directory `./data/imagenet`, you can directly run the following command to resize the dataset:
+
+  ```bash
+  python gen_imagenet_256.py
+  ```
+
+  The standardized dataset will be stored in `./data/imagenet_256`
+
+* Update `./create_poisoned_set_imagenet.py`, `./ct_cleanser_imagenet.py`, `./train_on_poisoned_set.py`, `./train_on_cleansed_set.py` and `./utils/imagenet.py` by replacing the placeholder `/path_to_imagenet/` with your customized path to the `imagenet_256` folder. If you exactly follow above instructions, then it would be `./data/imagenet_256`. 
+
+* Run the code
+
+  Now, you are good to go with the following example on Imagenet:
+
+  ```bash
+  python create_clean_set.py -dataset imagenet -clean_budget 5000 # reserved clean set for CT
+  python create_poisoned_set_imagenet.py -poison_type badnet -poison_rate 0.01 # a seperate script for creating poisoned dataset
+  python train_on_poisoned_set.py -dataset=imagenet -poison_type=badnet -poison_rate=0.01
+  python ct_cleanser_imagenet.py -poison_type=badnet -poison_rate=0.01 -devices=0,1 -debug_info # a seperate script for managing confusion training
+  python train_on_cleansed_set.py -cleanser=CT -dataset=imagenet -poison_type=badnet -poison_rate=0.01
+  ```
+
 
 ### Ember
 
 > On Ember, we use the original code from https://github.com/ClonedOne/MalwareBackdoors to generate poisoned dataset.
+
+* Install the Ember package
+
+  Following the instructions from: https://github.com/elastic/ember to install Ember package into your environment. 
+
+  Note that, as the Ember package is a little bit old, there might be compatibility issues. We suggest you to create a separate conda environment for experiments on Ember. Conda is also suggested to be used when installing the Ember package. 
 
 * Get the original dataset
 
