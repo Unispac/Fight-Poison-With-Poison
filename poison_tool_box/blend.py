@@ -1,3 +1,8 @@
+"""
+Implementation of blend attack
+[1] Chen, Xinyun, et al. "Targeted backdoor attacks on deep learning systems using data poisoning." arXiv preprint arXiv:1712.05526 (2017).
+"""
+
 import os
 import torch
 import random

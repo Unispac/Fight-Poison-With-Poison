@@ -1,3 +1,8 @@
+"""
+Implementation of SentiNet defense
+[1] Chou, Edward, Florian Tramer, and Giancarlo Pellegrino. "Sentinet: Detecting localized universal attacks against deep learning systems." 2020 IEEE Security and Privacy Workshops (SPW). IEEE, 2020.
+"""
+
 #!/usr/bin/env python3
 
 # from ..backdoor_defense import BackdoorDefense

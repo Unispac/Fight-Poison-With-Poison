@@ -1,3 +1,5 @@
+'''codes used to visualize latent space of the model
+'''
 import random
 import numpy as np
 import os

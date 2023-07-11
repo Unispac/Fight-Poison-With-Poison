@@ -1,3 +1,5 @@
+'''codes used to call other non-poison-detection-based baseline backdoor defenses to defend against the backdoor attacks
+'''
 import torch
 from other_defenses_tool_box import NC, STRIP, FP, ABL, NAD, SentiNet
 import argparse, config, os, sys

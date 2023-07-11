@@ -1,3 +1,7 @@
+"""
+Implementation of ABL defense
+[1] Li, Yige, et al. "Anti-backdoor learning: Training clean models on poisoned data." Advances in Neural Information Processing Systems 34 (2021): 14900-14912.
+"""
 #!/usr/bin/env python3
 import numpy as np
 import torch

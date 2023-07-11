@@ -1,3 +1,5 @@
+'''codes used to create poisoned dataset for cifar10 and gtsrb
+'''
 import os
 import torch
 from torchvision import datasets, transforms

@@ -1,3 +1,5 @@
+'''default arguments for data poisoning setup
+'''
 parser_choices = {
     'dataset': ['gtsrb', 'cifar10', 'ember', 'imagenet'],
     'poison_type': ['badnet', 'blend', 'dynamic', 'clean_label', 'TaCT', 'SIG', 'WaNet', 'ISSBA',

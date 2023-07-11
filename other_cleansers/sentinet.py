@@ -1,3 +1,9 @@
+"""
+Implementation of SentiNet defense
+[1] Chou, Edward, Florian Tramer, and Giancarlo Pellegrino. "Sentinet: Detecting localized universal attacks against deep learning systems." 2020 IEEE Security and Privacy Workshops (SPW). IEEE, 2020.
+(adapted for poison detection)
+"""
+
 import torch, torchvision
 import numpy as np
 from tqdm import tqdm

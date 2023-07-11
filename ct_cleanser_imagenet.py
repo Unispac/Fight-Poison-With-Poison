@@ -1,3 +1,5 @@
+'''codes used to call key functional module of confusion training and use it to cleanse poisoned ImageNet
+'''
 import os, sys
 import argparse
 import numpy as np

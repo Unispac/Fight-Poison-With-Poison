@@ -1,4 +1,9 @@
+"""
+Finepruning defense
+[1] Liu, Kang, Brendan Dolan-Gavitt, and Siddharth Garg. "Fine-pruning: Defending against backdooring attacks on deep neural networks." International symposium on research in attacks, intrusions, and defenses. Cham: Springer International Publishing, 2018.
+"""
 #!/usr/bin/env python3
+
 import torch
 import torch.nn as nn
 import torch.nn.utils.prune as prune

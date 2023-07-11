@@ -1,3 +1,5 @@
+'''codes used to create poisoned dataset for imagenet
+'''
 import os
 import torch
 import argparse

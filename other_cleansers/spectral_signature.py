@@ -1,3 +1,9 @@
+"""
+(Spectral Signature) SS poison detector
+[1] Tran, Brandon, Jerry Li, and Aleksander Madry. "Spectral signatures in backdoor attacks." Advances in neural information processing systems 31 (2018).
+adapted from : https://github.com/hsouri/Sleeper-Agent/blob/master/forest/filtering_defenses.py
+"""
+
 import numpy as np
 import torch
 from tqdm import tqdm

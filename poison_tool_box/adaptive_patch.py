@@ -1,3 +1,11 @@
+"""Adaptive patch backdoor attack (with k triggers)
+Just keep the original labels for some (say 50%) poisoned samples...
+
+Poison with k triggers.
+
+[1] Qi, Xiangyu, et al. "Revisiting the assumption of latent separability for backdoor defenses." The eleventh international conference on learning representations. 2022.
+"""
+
 import os
 from sklearn import config_context
 import torch
@@ -8,11 +16,7 @@ import config
 from torchvision import transforms
 from PIL import Image
 
-"""Adaptive backdoor attack (with k triggers)
-Just keep the original labels for some (say 50%) poisoned samples...
 
-Poison with k triggers.
-"""
 # k = 4
 # trigger_names = [
 #     'hellokitty_split_1_32.png',

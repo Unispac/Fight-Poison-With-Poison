@@ -1,3 +1,5 @@
+'''core codes for confusion training
+'''
 import os
 import torch
 from torch import nn
@@ -9,6 +11,20 @@ from utils import tools
 
 # extract features
 def get_features(data_loader, model):
+    '''
+        Extract features on a dataset with a given model
+
+        Parameters:
+            data_loader (torch.utils.data.DataLoader): the dataloader of the dataset on which we want to extract features
+            model (nn.Module): the mode used to extract features
+
+        Returns:
+            feats(list): a list of features for each sample in the dataset
+            label_list(list): the ground truth label for each sample in the dataset
+            preds_list(list): the model's prediction on each sample of the dataset
+            gt_confidence(list): the model's confidence on the ground truth label of each sample in the dataset
+            loss_vals(list): the loss values of the model on each sample in the dataset
+        '''
 
     label_list = []
     preds_list = []
@@ -45,6 +61,18 @@ def get_features(data_loader, model):
 
 
 def identify_poison_samples_simplified(inspection_set, clean_indices, model, num_classes):
+    '''
+            Identify poison samples in a dataset (under inspection) with the confused model.
+
+            Parameters:
+                inspection_set (torch.utils.data.Dataset): the dataset that potentially contains poison samples and needs to be cleansed
+                clean_indices (dict): a set of indices of samples that are expected to be clean (e.g., have high loss values after confusion training)
+                model (nn.Module): the mode used to detect poison samples
+                num_classes (int): number of classes in the dataset
+
+            Returns:
+                suspicious_indices (list): indices of detected poison samples
+            '''
 
     from scipy.stats import multivariate_normal
 
@@ -205,7 +233,27 @@ def identify_poison_samples_simplified(inspection_set, clean_indices, model, num
 # pretraining on the poisoned datast to learn a prior of the backdoor
 def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epochs, distilled_set_loader, criterion,
              inspection_set_dir, confusion_iter, lr, load = True, dataset_name=None):
+    '''
+                pretraining on the poisoned dataset to learn a prior of the backdoor
 
+                Parameters:
+                    args: arguments
+                    debug_packet (function): tools for measuring the performance
+                    arch: architecture of the model
+                    num_classes (int): number of classes in the dataset
+                    weight_decay (float): weight_decay parameter for optimizer
+                    pretrain_epochs (int): number of pretraining epochs
+                    distilled_set_loader (torch.utils.data.DataLoader): data loader of the distilled set
+                    criterion: loss function
+                    inspection_set_dir (str): directory that holds the dataset to be inspected (cleansed)
+                    confusion_iter (int): number of confusion training iterations
+                    lr (float): learning rate
+                    load (True): whether to load the pretrained model of last round to initiate the model
+                    dataset_name (str): name of the benchmark dataset used to experiment
+
+                Returns:
+                    model: the pretrained model
+                '''
 
     ######### Pretrain Base Model ##############
     model = arch(num_classes = num_classes)
@@ -256,6 +304,29 @@ def pretrain(args, debug_packet, arch, num_classes, weight_decay, pretrain_epoch
 def confusion_train(args, params, inspection_set, debug_packet, distilled_set_loader, clean_set_loader, confusion_iter, arch,
                     num_classes, inspection_set_dir, weight_decay, criterion_no_reduction,
                     momentum, lamb, freq, lr, batch_factor, distillation_iters, dataset_name = None):
+    '''
+                    key codes for confusion training loop
+
+                    Parameters:
+                           args: arguments
+                           params: configuration of datasets
+                           inspection_set (torch.utils.data.Dataset): the dataset that potentially contains poison samples and needs to be cleansed
+                           debug_packet (function): tools for measuring the performance
+                           distilled_set_loader (torch.utils.data.DataLoader): the data loader of distilled set in previous rounds
+                           clean_set_loader (torch.utils.data.DataLoader): the data loader of the reserved clean set
+                           confusion_iter (int): the round id of the confusion training
+                           arch: the model architecture
+                           num_classes (int): number of classes in the dataset
+                           lamb (int): the weight parameter to balance confusion training objective and clean training objective
+                           freq (int): class frequency of the distilled set
+                           lr (float): learning rate of the optimizer
+                           batch_factor (int): the number of batch intervals of applying confusion training objective
+                           distillation_iters (int): the number of confusion training iterations
+                           dataset_name (str): name of the benchmark dataset used to experiment
+
+                       Returns:
+                           the confused model in this round
+                       '''
 
     base_model = params['arch'](num_classes = num_classes)
     base_model.load_state_dict(
@@ -381,6 +452,23 @@ def confusion_train(args, params, inspection_set, debug_packet, distilled_set_lo
 # restore from a certain iteration step
 def distill(args, params, inspection_set, n_iter, criterion_no_reduction,
             dataset_name = None, final_budget = None, class_wise = False, custom_arch=None):
+    '''
+                   distill samples from the dataset based on loss values of the inference model
+
+                   Parameters:
+                       args: arguments
+                       params: configuration of datasets
+                       inspection_set (torch.utils.data.Dataset): the dataset that potentially contains poison samples and needs to be cleansed
+                       n_iter (int): id of current iteration
+                       criterion_no_reduction: loss function
+                       dataset_name (str): name of the benchmark dataset used to experiment
+                       final_budget (int): maximal number of distilled samples
+                       class_wise (bool): whether to list indices of distilled samples for each class seperately
+                       custom_arch: if not None, it is assigned as a customized architecture that is different from the specification in params
+
+                   Returns:
+                       indicies of distilled samples
+                   '''
 
     kwargs = params['kwargs']
     inspection_set_dir = params['inspection_set_dir']

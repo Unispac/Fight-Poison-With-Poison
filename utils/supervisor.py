@@ -1,3 +1,15 @@
+"""
+In our defensive setting, we assume a poisoned training set and a small clean
+set at hand, i.e. we train base model jointly with the poisoned set and
+the shifted set (constructed based on the small clean set).
+
+On the other hand, we also prepare a clean test set (usually larger than the
+small clean set used for defense in our experiments). But note that, this set is
+not used for defense, it is used for debug and evaluation!
+
+Below we implement tools to take use of the additional clean test set for debug & evaluation.
+"""
+
 import  torch
 from torch import  nn
 import  torch.nn.functional as F
@@ -9,17 +21,6 @@ import argparse
 import config
 
 
-"""
-In our defensive setting, we assume a poisoned training set and a small clean 
-set at hand, i.e. we train base model jointly with the poisoned set and 
-the shifted set (constructed based on the small clean set).
-
-On the other hand, we also prepare a clean test set (usually larger than the 
-small clean set used for defense in our experiments). But note that, this set is 
-not used for defense, it is used for debug and evaluation!
-
-Below we implement tools to take use of the additional clean test set for debug & evaluation.
-"""
 
 def get_cleansed_set_indices_dir(args):
     poison_set_dir = get_poison_set_dir(args)

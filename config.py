@@ -1,3 +1,6 @@
+'''Default configurations of our experiments
+'''
+
 from utils import resnet, vgg, mobilenetv2, ember_nn, gtsrb_cnn, wresnet
 from utils import supervisor
 from utils import tools

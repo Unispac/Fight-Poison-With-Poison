@@ -1,3 +1,5 @@
+'''codes used to call key functional module of confusion training and use it to cleanse dataset on cifar10 and gtsrb
+'''
 import os, sys
 import argparse
 import numpy as np

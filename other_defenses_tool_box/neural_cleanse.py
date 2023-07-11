@@ -1,3 +1,7 @@
+"""
+Implementation of Neural Cleanse (NC) defense
+[1] Wang, Bolun, et al. "Neural cleanse: Identifying and mitigating backdoor attacks in neural networks." 2019 IEEE Symposium on Security and Privacy (SP). IEEE, 2019.
+"""
 import sys, os
 from tkinter import E
 EXT_DIR = ['..']

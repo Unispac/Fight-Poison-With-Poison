@@ -1,3 +1,7 @@
+"""
+Toolkit for implementing badnet backdoor poisoning attacks
+[1] Gu, Tianyu, et al. "Badnets: Evaluating backdooring attacks on deep neural networks." IEEE Access 7 (2019): 47230-47244.
+"""
 import os
 import torch
 import random

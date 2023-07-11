@@ -1,3 +1,7 @@
+"""
+Implementation of ISSBA backdoor attack
+[1] Li, Yuezun, et al. "Invisible backdoor attack with sample-specific triggers." Proceedings of the IEEE/CVF international conference on computer vision. 2021.
+"""
 import os
 from sklearn import config_context
 import torch

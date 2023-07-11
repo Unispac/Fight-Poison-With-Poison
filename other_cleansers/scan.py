@@ -1,3 +1,8 @@
+"""
+SCAn poison detector
+[1] Tang, Di, et al. "Demon in the variant: Statistical analysis of {DNNs} for robust backdoor contamination detection." 30th USENIX Security Symposium (USENIX Security 21). 2021.
+"""
+
 import numpy as np
 import torch
 from tqdm import tqdm

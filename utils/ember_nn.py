@@ -1,7 +1,11 @@
+'''codes of EmberNN architecture used for training on Ember dataset
+'''
 import torch
 from torch import nn
 
 class EmberNN(nn.Module):
+    '''EmberNN architecture for Ember Dataset
+    '''
 
     def __init__(self, n_features = 2351, num_classes=2):
 
@@ -58,6 +62,8 @@ class EmberNN(nn.Module):
 
 
 class EmberNN_narrow(nn.Module):
+    '''a narrow version of EmberNN
+    '''
 
     def __init__(self, n_features = 2351, num_classes=2):
 

@@ -1,3 +1,8 @@
+"""
+Implementation of Activaiton Clustering (AC) base defenses
+[1] Chen, Bryant, et al. "Detecting backdoor attacks on deep neural networks by activation clustering." arXiv preprint arXiv:1811.03728 (2018).
+"""
+
 import numpy as np
 import torch
 from tqdm import tqdm

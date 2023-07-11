@@ -1,3 +1,7 @@
+"""
+WaNet (static poisoning). https://github.com/VinAIResearch/Warping-based_Backdoor_Attack-release
+[1] Nguyen, Anh, and Anh Tran. "Wanet--imperceptible warping-based backdoor attack." arXiv preprint arXiv:2102.10369 (2021).
+"""
 import os
 import torch
 from torch import nn
@@ -6,9 +10,7 @@ import random
 from torchvision.utils import save_image
 from config import poison_seed
 
-"""
-WaNet (static poisoning). https://github.com/VinAIResearch/Warping-based_Backdoor_Attack-release
-"""
+
 
 class poison_generator():
 

@@ -1,3 +1,7 @@
+"""
+No backdoor attack.
+This is implemented to make sure no-attack setup has the same dataset interface with poisoned datasets
+"""
 import os
 import torch
 import random

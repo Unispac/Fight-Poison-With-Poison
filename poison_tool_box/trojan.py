@@ -1,11 +1,12 @@
+"""Trojan backdoor attack
+Adopting the trojan patch trigger from [TrojanNN](https://docs.lib.purdue.edu/cgi/viewcontent.cgi?article=2782&context=cstech)
+[1] Liu, Yingqi, et al. "Trojaning attack on neural networks." 25th Annual Network And Distributed System Security Symposium (NDSS 2018). Internet Soc, 2018.
+"""
 import os
 import torch
 import random
 from torchvision.utils import save_image
 
-"""Trojan backdoor attack
-Adopting the trojan patch trigger from [TrojanNN](https://docs.lib.purdue.edu/cgi/viewcontent.cgi?article=2782&context=cstech)
-"""
 
 class poison_generator():
 

@@ -1,3 +1,5 @@
+'''codes used to rescale original ImageNet dataset to 256 x 256 format, which is compatible with our toolkit for ImageNet
+'''
 import os
 
 

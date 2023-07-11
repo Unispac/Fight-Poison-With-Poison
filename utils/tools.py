@@ -1,3 +1,6 @@
+"""
+Some functional tools for dataset management and testing models
+"""
 import  torch
 from torch import nn
 import  torch.nn.functional as F

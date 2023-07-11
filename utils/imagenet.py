@@ -1,3 +1,5 @@
+'''experiments toolkit for backdoor poisoning attacks on imagenet
+'''
 import torch
 import numpy as np
 

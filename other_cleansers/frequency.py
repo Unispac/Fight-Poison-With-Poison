@@ -1,3 +1,8 @@
+"""
+Frequency based poison detection
+[1] Zeng, Yi, et al. "Rethinking the backdoor attacks' triggers: A frequency perspective." Proceedings of the IEEE/CVF international conference on computer vision. 2021.
+"""
+
 from tensorflow.compat.v1.keras.models import Sequential
 from tensorflow.compat.v1.keras.layers import Dense, Activation, Flatten, Dropout, BatchNormalization
 from tensorflow.compat.v1.keras.layers import Conv2D, MaxPooling2D

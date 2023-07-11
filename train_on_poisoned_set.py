@@ -1,3 +1,5 @@
+'''codes used to train backdoored models on poisoned dataset
+'''
 import argparse
 import os, sys
 import time

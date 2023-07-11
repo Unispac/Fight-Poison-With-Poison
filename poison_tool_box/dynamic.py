@@ -1,3 +1,7 @@
+"""
+Implementation of Input-aware dynamic attacks
+[1] Nguyen, Tuan Anh, and Anh Tran. "Input-aware dynamic backdoor attack." Advances in Neural Information Processing Systems 33 (2020): 3454-3464.
+"""
 import os
 import torch
 import random

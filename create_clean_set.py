@@ -1,3 +1,7 @@
+'''Given the vanilla test set of a benchmark dataset,
+this code file is responsible for randomly repartition it into two parts.
+One part is used to simulate the reserved clean set, and the other part is used as the new test set.
+'''
 import numpy as np
 import os
 import torch

@@ -1,3 +1,7 @@
+"""
+A superimposed based clean label attack
+[1] Barni, Mauro, Kassem Kallas, and Benedetta Tondi. "A new backdoor attack in cnns by training set corruption without label poisoning." 2019 IEEE International Conference on Image Processing (ICIP). IEEE, 2019.
+"""
 import os
 import torch
 import random

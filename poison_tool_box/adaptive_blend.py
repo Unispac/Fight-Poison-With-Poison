@@ -1,3 +1,11 @@
+"""Adaptive Mask backdoor attack
+- Keep the original labels for some (say 50%) poisoned samples.
+- Divide the blending trigger into multiple pieces, randomly masking some pieces while poisoning the trainset.
+This version uses blending backdoor trigger: blending a mark with a mask and a transparency `alpha`
+
+[1] Qi, Xiangyu, et al. "Revisiting the assumption of latent separability for backdoor defenses." The eleventh international conference on learning representations. 2023.
+"""
+
 import os
 from sklearn import config_context
 import torch
@@ -8,11 +16,7 @@ import config
 from torchvision import transforms
 from math import sqrt
 
-"""Adaptive Mask backdoor attack
-- Keep the original labels for some (say 50%) poisoned samples.
-- Divide the blending trigger into multiple pieces, randomly masking some pieces while poisoning the trainset.
-This version uses blending backdoor trigger: blending a mark with a mask and a transparency `alpha`
-"""
+
 
 
 def issquare(x):

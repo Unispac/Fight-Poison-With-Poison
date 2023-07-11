@@ -1,3 +1,8 @@
+"""
+Strip backdoor defense
+[1] Gao, Yansong, et al. "Strip: A defence against trojan attacks on deep neural networks." Proceedings of the 35th Annual Computer Security Applications Conference. 2019.
+"""
+
 #!/usr/bin/env python3
 
 # from ..backdoor_defense import BackdoorDefense

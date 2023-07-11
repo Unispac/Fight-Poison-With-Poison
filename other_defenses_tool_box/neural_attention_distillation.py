@@ -1,4 +1,9 @@
+"""
+Implementation of NAD defense
+[1] Li, Yige, et al. "Neural attention distillation: Erasing backdoor triggers from deep neural networks." arXiv preprint arXiv:2101.05930 (2021).
+"""
 #!/usr/bin/env python3
+
 import numpy as np
 import torch
 import torch.nn as nn

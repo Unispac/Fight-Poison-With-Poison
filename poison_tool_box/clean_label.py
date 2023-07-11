@@ -1,3 +1,7 @@
+"""
+Implementation of Clean Label (CL) attack
+[1] Turner, Alexander, Dimitris Tsipras, and Aleksander Madry. "Clean-label backdoor attacks." (2018).
+"""
 import os
 import torch
 import random

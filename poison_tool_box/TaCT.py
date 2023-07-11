@@ -1,3 +1,7 @@
+"""
+A source specific adaptive backdoor poisoning attack
+[1] Tang, Di, et al. "Demon in the variant: Statistical analysis of {DNNs} for robust backdoor contamination detection." 30th USENIX Security Symposium (USENIX Security 21). 2021.
+"""
 import os
 import torch
 import random
